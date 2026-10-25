@@ -65,3 +65,22 @@ need the configured user. There is no TLS, SNMP, Wi-Fi or mDNS in the component.
   `upsd/` (protocol and server).
 - `tests/` host tests: `make -C tests` (gcc + Unity).
 - `example/smartslot-bench.yaml` bench config; `esphome compile example/smartslot-bench.yaml`.
+
+## Entities
+
+```yaml
+sensor:
+  - platform: smartslot
+    variable: battery.charge      # any NUT variable name
+    name: Battery charge
+text_sensor:
+  - platform: smartslot
+    variable: ups.status
+    name: UPS status
+button:
+  - platform: smartslot
+    command: beeper.toggle        # any NUT instant command
+    name: Toggle beeper
+```
+
+Nothing is published while the UPS is absent or its data is stale. `nutshim_value_for_publish` lives in `nutdrv.h`.

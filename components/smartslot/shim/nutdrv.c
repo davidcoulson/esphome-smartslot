@@ -202,3 +202,11 @@ void nutdrv_stop(void) {
     stop_req = true;
     os_sem_take(stopped_sem, 5000);
 }
+
+bool nutshim_value_for_publish(const char *var, char *buf, size_t len) {
+    if (state != NUTDRV_RUNNING || !dstate_is_dataok()) return false;
+    const char *v = dstate_getinfo(var);
+    if (!v || !len) return false;
+    snprintf(buf, len, "%s", v);
+    return true;
+}

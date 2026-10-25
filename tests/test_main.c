@@ -42,6 +42,10 @@ void test_nutdrv_waits_for_probe_then_runs(void);
 void test_nutdrv_instcmd_runs_on_driver_task(void);
 void test_nutdrv_five_stale_polls_return_to_no_ups(void);
 
+void test_publish_only_when_running_fresh_and_present(void);
+
+void test_timegm_matches_libc(void);
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_setinfo_getinfo_roundtrip);
@@ -76,5 +80,7 @@ int main(void) {
     RUN_TEST(test_nutdrv_waits_for_probe_then_runs);
     RUN_TEST(test_nutdrv_instcmd_runs_on_driver_task);
     RUN_TEST(test_nutdrv_five_stale_polls_return_to_no_ups);
+    RUN_TEST(test_publish_only_when_running_fresh_and_present);
+    RUN_TEST(test_timegm_matches_libc);
     return UNITY_END();
 }

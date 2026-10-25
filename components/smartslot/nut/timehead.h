@@ -4,4 +4,5 @@
 #define SMARTSLOT_NUT_TIMEHEAD_H
 #include <sys/time.h>
 #include <time.h>
+time_t timegm(struct tm *tm); /* newlib has no declaration; shim/timegm.c */
 #endif

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef SMARTSLOT_NUTDRV_H
 #define SMARTSLOT_NUTDRV_H
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +24,8 @@ int nutdrv_start(const nutdrv_config *cfg);
 int nutdrv_instcmd(const char *cmd, const char *param, uint32_t timeout_ms);
 int nutdrv_setvar(const char *var, const char *val, uint32_t timeout_ms);
 nutdrv_state_t nutdrv_state(void);
+/* Copies the value only while the driver is RUNNING, data is fresh and the variable exists; else false (publish nothing). */
+bool nutshim_value_for_publish(const char *var, char *buf, size_t len);
 /* Tests only: ask the task to finish and wait for it. */
 void nutdrv_stop(void);
 

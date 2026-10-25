@@ -3,6 +3,11 @@
 
 #include <string>
 
+#include <utility>
+#include <vector>
+
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 
 #define SMARTSLOT_VERSION "0.1.0-dev"
@@ -29,6 +34,10 @@ class SmartSlot : public PollingComponent {
     this->nut_pass_ = pass;
   }
 
+  void register_sensor(sensor::Sensor *s, const std::string &var) { this->sensors_.emplace_back(s, var); }
+  void register_text_sensor(text_sensor::TextSensor *t, const std::string &var) { this->text_sensors_.emplace_back(t, var); }
+  int instcmd(const std::string &cmd);
+
   void setup() override;
   void update() override;
   void dump_config() override;
@@ -40,6 +49,8 @@ class SmartSlot : public PollingComponent {
   uint32_t baud_{9600};
   uint16_t nut_port_{3493};
   std::string nut_user_, nut_pass_;
+  std::vector<std::pair<sensor::Sensor *, std::string>> sensors_;
+  std::vector<std::pair<text_sensor::TextSensor *, std::string>> text_sensors_;
 };
 
 }  // namespace smartslot

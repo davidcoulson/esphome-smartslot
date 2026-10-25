@@ -51,16 +51,15 @@ web_server:
 status_led:
   pin: GPIO54
 
-# Entities are enabled in Task 8:
-# sensor:
-#   - platform: smartslot
-#     variable: battery.charge
-#     name: Battery charge
-# text_sensor:
-#   - platform: smartslot
-#     variable: ups.status
-#     name: UPS status
-# button:
-#   - platform: smartslot
-#     command: beeper.toggle
-#     name: Toggle beeper
+sensor:
+  - platform: smartslot
+    variable: battery.charge
+    name: Battery charge
+text_sensor:
+  - platform: smartslot
+    variable: ups.status
+    name: UPS status
+button:
+  - platform: smartslot
+    command: beeper.toggle
+    name: Toggle beeper
