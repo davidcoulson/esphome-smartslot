@@ -93,12 +93,23 @@ static void out_append(struct outbuf *o, const char *s, size_t n) {
     o->p[o->len] = 0;
 }
 
+/* Latched by FSD like upsd's: every client then sees "FSD" in ups.status until the card restarts. */
+static volatile bool fsd_latched;
+void nutproto_fsd_clear(void) { fsd_latched = false; }
+
+static const char *with_fsd(const char *name, const char *value, char *buf, size_t n) {
+    if (!fsd_latched || strcmp(name, "ups.status") != 0) return value;
+    snprintf(buf, n, "%s FSD", value);
+    return buf;
+}
+
 static void list_var_cb(const char *name, const char *value, int flags, long aux, void *ctx) {
     struct outbuf *o = ctx;
     (void) aux;
     if (o->rw_only && !(flags & ST_FLAG_RW)) return;
     char line[LINE_MAX_OUT];
-    int n = var_line(line, sizeof line, o->rw_only ? "RW" : "VAR", name, value);
+    char fsd[300];
+    int n = var_line(line, sizeof line, o->rw_only ? "RW" : "VAR", name, with_fsd(name, value, fsd, sizeof fsd));
     if (n > 0) out_append(o, line, (size_t) (n < (int) sizeof line ? n : (int) sizeof line - 1));
 }
 
@@ -196,7 +207,8 @@ static int handle_get(nutproto_session *s, int argc, char **argv) {
         if (!dstate_is_dataok()) return reply(s, "ERR DATA-STALE\n");
         char val[256], line[LINE_MAX_OUT];
         if (!dstate_copyinfo(name, val, sizeof val)) return reply(s, "ERR VAR-NOT-SUPPORTED\n");
-        int n = var_line(line, sizeof line, "VAR", name, val);
+        char fsd[300];
+        int n = var_line(line, sizeof line, "VAR", name, with_fsd(name, val, fsd, sizeof fsd));
         return s->h->send(s->ctx, line, (size_t) (n < (int) sizeof line ? n : (int) sizeof line - 1));
     }
     if (strcasecmp(what, "TYPE") == 0 || strcasecmp(what, "DESC") == 0) {
@@ -276,6 +288,13 @@ int nutproto_handle(nutproto_session *s, char *line) {
         else if (strcmp(argv[1], UPS_NAME) != 0) r = reply(s, "ERR UNKNOWN-UPS\n");
         else if (!authorized(s)) r = reply(s, "ERR ACCESS-DENIED\n");
         else { s->logged_in = true; r = reply(s, "OK\n"); }
+    } else if (strcasecmp(cmd, "PRIMARY") == 0 || strcasecmp(cmd, "MASTER") == 0 || strcasecmp(cmd, "FSD") == 0) {
+        bool fsd = strcasecmp(cmd, "FSD") == 0;
+        if (argc != 2) r = reply(s, "ERR INVALID-ARGUMENT\n");
+        else if (strcmp(argv[1], UPS_NAME) != 0) r = reply(s, "ERR UNKNOWN-UPS\n");
+        else if (!authorized(s)) r = reply(s, "ERR ACCESS-DENIED\n"); /* the one configured user is the primary */
+        else if (fsd) { fsd_latched = true; r = reply(s, "OK FSD-SET\n"); }
+        else r = reply(s, "OK PRIMARY-GRANTED\n");
     } else if (strcasecmp(cmd, "LOGOUT") == 0) {
         s->logged_in = false;
         reply(s, "OK Goodbye\n");

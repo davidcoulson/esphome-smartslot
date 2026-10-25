@@ -46,6 +46,8 @@ void test_publish_only_when_running_fresh_and_present(void);
 
 void test_timegm_matches_libc(void);
 
+void test_proto_primary_and_fsd(void);
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_setinfo_getinfo_roundtrip);
@@ -82,5 +84,6 @@ int main(void) {
     RUN_TEST(test_nutdrv_five_stale_polls_return_to_no_ups);
     RUN_TEST(test_publish_only_when_running_fresh_and_present);
     RUN_TEST(test_timegm_matches_libc);
+    RUN_TEST(test_proto_primary_and_fsd);
     return UNITY_END();
 }

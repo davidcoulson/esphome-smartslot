@@ -40,6 +40,7 @@ static void reset(void) {
     out_n = 0; out[0] = 0;
     fake_user = ""; fake_pass = "";
     instcmd_ret = setvar_ret = instcmd_calls = setvar_calls = fake_logins = 0;
+    nutproto_fsd_clear();
     nutproto_session_init(&sess, &hooks, NULL);
 }
 static int handle(const char *line) {
@@ -219,4 +220,31 @@ void test_proto_ver_netver_and_send_failure(void) {
     out_n = sizeof out - 4; /* fake_send now fails */
     char l[] = "NETVER";
     TEST_ASSERT_EQUAL(1, nutproto_handle(&sess, l)); /* send failure asks for the connection to be closed */
+}
+
+void test_proto_primary_and_fsd(void) {
+    reset();
+    dstate_setinfo("ups.status", "OL");
+    dstate_dataok();
+    handle("PRIMARY ups");
+    TEST_ASSERT_EQUAL_STRING("ERR ACCESS-DENIED\n", out);
+    handle("FSD ups");
+    TEST_ASSERT_EQUAL_STRING("ERR ACCESS-DENIED\n", out);
+    fake_user = "u"; fake_pass = "p";
+    handle("USERNAME u"); handle("PASSWORD p");
+    handle("PRIMARY nope");
+    TEST_ASSERT_EQUAL_STRING("ERR UNKNOWN-UPS\n", out);
+    handle("MASTER ups");
+    TEST_ASSERT_EQUAL_STRING("OK PRIMARY-GRANTED\n", out);
+    handle("PRIMARY");
+    TEST_ASSERT_EQUAL_STRING("ERR INVALID-ARGUMENT\n", out);
+    handle("GET VAR ups ups.status");
+    TEST_ASSERT_EQUAL_STRING("VAR ups ups.status \"OL\"\n", out);
+    handle("FSD ups");
+    TEST_ASSERT_EQUAL_STRING("OK FSD-SET\n", out);
+    handle("GET VAR ups ups.status");
+    TEST_ASSERT_EQUAL_STRING("VAR ups ups.status \"OL FSD\"\n", out);
+    handle("LIST VAR ups");
+    TEST_ASSERT_NOT_NULL(strstr(out, "VAR ups ups.status \"OL FSD\"\n"));
+    nutproto_fsd_clear();
 }

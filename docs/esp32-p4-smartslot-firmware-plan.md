@@ -408,3 +408,14 @@ git add -A && git commit -m "Bench results: ESP32-P4 board + SMT750 over the fro
 - Review Focus items 1–5 each have a test: 1 and 4 in Task 6, 2 in Task 5, 3 in Tasks 3/7/8, 5 in Task 3.
 - Left open on purpose: exact `LIST VAR` ordering is insertion order (NUT uses a tree, alphabetical); `upsc` sorts client-side, Home Assistant does not care. Test counts (9/17/21/24/27) are targets, not contracts: adjust the Expected line if a task adds a test.
 - Dropped against the ESP-IDF version of this plan: Kconfig, NVS config store, esp_console commands, own Ethernet bring-up, own LED loop. ESPHome and the YAML provide them.
+
+---
+
+## Deviations found while executing (2026-10-25)
+
+- ESPHome 2026.10 builds with native ESP-IDF, not PlatformIO, and copies only top-level files of an external component. The C tree (`nut/`, `shim/`, `upsd/`) is therefore an IDF component registered from `__init__.py` with `add_idf_component(path=...)` plus `components/smartslot/CMakeLists.txt`; `build_src_filter` is not used. New `.c` files are picked up by the glob but need a CMake reconfigure (touch `CMakeLists.txt`).
+- `nutshim_value_for_publish` is declared in `nutdrv.h`, not `nutshim.h` (it needs `nutdrv_state`).
+- The vendored `apc_common.c` calls `timegm()`, which newlib lacks: `shim/timegm.c` supplies it (host-tested against libc).
+- Task 7: `nutdrv_start` takes the UART_SEL pin and calls `uartsel_init` itself; the vendored `upsdrv_cleanup` closes the serial port, so `nutdrv` never calls `ser_close`.
+- Codex review additions: `PRIMARY`/`MASTER`/`FSD` in the NUT handler (the single configured user is the primary; FSD latches `FSD` into `ups.status` until restart), and publishing copies values under the dstate mutex.
+- Task 8 step 4 (verify GPIO 47, 48, 53, 54 on the bench board) is NOT done: it needs the board in hand.

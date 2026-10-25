@@ -28,6 +28,7 @@ typedef struct {
 void nutproto_session_init(nutproto_session *s, const nutproto_hooks *h, void *ctx);
 /* `line` has no CR/LF and is modified in place. Returns 0 = keep the connection, 1 = close it. */
 int nutproto_handle(nutproto_session *s, char *line);
+void nutproto_fsd_clear(void); /* tests only: the FSD latch is process-wide */
 
 #ifdef __cplusplus
 }
