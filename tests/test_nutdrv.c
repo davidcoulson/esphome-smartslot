@@ -8,6 +8,7 @@
 
 extern volatile bool fake_stale;
 extern pthread_t fake_instcmd_thread;
+extern int fake_instcmd_calls;
 extern int fake_cleanup_calls;
 extern char fake_device_path[32];
 
@@ -58,6 +59,25 @@ void test_nutdrv_instcmd_runs_on_driver_task(void) {
     TEST_ASSERT_EQUAL(STAT_INSTCMD_FAILED, nutdrv_instcmd("beeper.toggle", NULL, 100)); /* no driver: fails at once */
 }
 
+void test_nutdrv_detached_request_returns_before_the_driver_runs_it(void) {
+    reply_ok();
+    begin();
+    wait_state(NUTDRV_RUNNING, 3000);
+    fake_instcmd_calls = 0;
+    uint64_t t0 = os_now_ms();
+    TEST_ASSERT_EQUAL(STAT_INSTCMD_HANDLED, nutdrv_instcmd("slow", NULL, 0)); /* a 300 ms command: OK means queued */
+    TEST_ASSERT_LESS_THAN_UINT64(100, os_now_ms() - t0);
+    TEST_ASSERT_EQUAL(0, fake_instcmd_calls);
+    TEST_ASSERT_EQUAL(STAT_SET_HANDLED, nutdrv_setvar("ups.delay.shutdown", "20", 0));
+    /* a timed request behind a detached one waits its turn and gets its own result, not the detached one's */
+    TEST_ASSERT_EQUAL(STAT_INSTCMD_UNKNOWN, nutdrv_instcmd("nope", NULL, 2000));
+    TEST_ASSERT_EQUAL(2, fake_instcmd_calls);
+    os_sleep_ms(100);
+    TEST_ASSERT_EQUAL(2, fake_instcmd_calls); /* the slow one ran once, on the driver task, and its slot was freed */
+    TEST_ASSERT_EQUAL(STAT_INSTCMD_HANDLED, nutdrv_instcmd("beeper.toggle", NULL, 0)); /* a slot is free again */
+    nutdrv_stop();
+}
+
 void test_nutdrv_five_stale_polls_return_to_no_ups(void) {
     reply_ok();
     begin();
@@ -67,10 +87,14 @@ void test_nutdrv_five_stale_polls_return_to_no_ups(void) {
     TEST_ASSERT_EQUAL(NUTDRV_NO_UPS, nutdrv_state());
     TEST_ASSERT_FALSE(dstate_is_dataok());
     TEST_ASSERT_TRUE(fake_cleanup_calls >= 1);
+    fake_instcmd_calls = 0;
+    TEST_ASSERT_EQUAL(STAT_INSTCMD_FAILED, nutdrv_instcmd("beeper.toggle", NULL, 0)); /* refused while probing... */
     /* the UPS comes back */
     fake_stale = false;
     reply_ok();
     wait_state(NUTDRV_RUNNING, 3000);
     TEST_ASSERT_EQUAL(NUTDRV_RUNNING, nutdrv_state());
+    os_sleep_ms(100);
+    TEST_ASSERT_EQUAL(0, fake_instcmd_calls); /* ...and nothing accepted before the session ended runs on the new one */
     nutdrv_stop();
 }

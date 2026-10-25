@@ -20,7 +20,9 @@ typedef enum { NUTDRV_NO_UPS, NUTDRV_STARTING, NUTDRV_RUNNING } nutdrv_state_t;
 /* 0 on success. Drives UART_SEL, then starts the "nutdrv" task. `cfg` strings must outlive the task. */
 int nutdrv_start(const nutdrv_config *cfg);
 /* Run an INSTCMD / SET on the driver task (the driver is single-threaded). STAT_*_FAILED on timeout, no driver, or no
- * free request slot. A request that timed out before the driver picked it up is never executed. */
+ * free request slot. A request that timed out before the driver picked it up is never executed.
+ * timeout_ms 0 queues the request and returns STAT_*_HANDLED at once; the driver's result is only logged. That is what
+ * upsd's OK means in NUT itself (forwarded to the driver), and it keeps the upsd task and the ESPHome loop unblocked. */
 int nutdrv_instcmd(const char *cmd, const char *param, uint32_t timeout_ms);
 int nutdrv_setvar(const char *var, const char *val, uint32_t timeout_ms);
 nutdrv_state_t nutdrv_state(void);

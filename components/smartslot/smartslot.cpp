@@ -16,7 +16,6 @@ namespace esphome {
 namespace smartslot {
 
 static const char *const TAG = "smartslot";
-static const uint32_t CMD_TIMEOUT_MS = 5000;
 
 // upsd takes plain C callbacks, so the credentials live in statics (one SmartSlot per node).
 static std::string g_user, g_pass;
@@ -26,8 +25,10 @@ static nutproto_hooks g_hooks;
 static bool check_user(const char *user, const char *pass) {
   return !g_user.empty() && g_user == user && g_pass == pass;
 }
-static int hook_instcmd(const char *cmd, const char *param) { return nutdrv_instcmd(cmd, param, CMD_TIMEOUT_MS); }
-static int hook_setvar(const char *var, const char *val) { return nutdrv_setvar(var, val, CMD_TIMEOUT_MS); }
+// Queue-and-forget (timeout 0): upsd serves every client from one task and the button runs on the ESPHome loop,
+// so neither may wait on the driver. OK means forwarded, as in NUT's own upsd without TRACKING.
+static int hook_instcmd(const char *cmd, const char *param) { return nutdrv_instcmd(cmd, param, 0); }
+static int hook_setvar(const char *var, const char *val) { return nutdrv_setvar(var, val, 0); }
 
 void SmartSlot::setup() {
   g_user = this->nut_user_;
@@ -48,7 +49,7 @@ void SmartSlot::setup() {
   if (upsd_start(&g_hooks, this->nut_port_) != 0) ESP_LOGE(TAG, "could not start upsd on port %u", this->nut_port_);
 }
 
-int SmartSlot::instcmd(const std::string &cmd) { return nutdrv_instcmd(cmd.c_str(), nullptr, CMD_TIMEOUT_MS); }
+int SmartSlot::instcmd(const std::string &cmd) { return nutdrv_instcmd(cmd.c_str(), nullptr, 0); }
 
 void SmartSlot::update() {
   char buf[256];
