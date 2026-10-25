@@ -32,6 +32,12 @@ void test_proto_set_var_unquotes(void);
 void test_proto_login_logout_misc(void);
 void test_proto_ver_netver_and_send_failure(void);
 
+void test_upsd_netver_over_tcp(void);
+void test_upsd_fifth_client_refused_four_survive(void);
+void test_upsd_overlong_line_rejected(void);
+void test_upsd_line_just_under_limit_is_handled(void);
+void test_upsd_logout_closes_and_numlogins_counts(void);
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_setinfo_getinfo_roundtrip);
@@ -58,5 +64,10 @@ int main(void) {
     RUN_TEST(test_proto_set_var_unquotes);
     RUN_TEST(test_proto_login_logout_misc);
     RUN_TEST(test_proto_ver_netver_and_send_failure);
+    RUN_TEST(test_upsd_netver_over_tcp);
+    RUN_TEST(test_upsd_fifth_client_refused_four_survive);
+    RUN_TEST(test_upsd_overlong_line_rejected);
+    RUN_TEST(test_upsd_line_just_under_limit_is_handled);
+    RUN_TEST(test_upsd_logout_closes_and_numlogins_counts);
     return UNITY_END();
 }

@@ -35,8 +35,21 @@ bool os_queue_receive(os_queue_t q, void **item, uint32_t timeout_ms) {
     return xQueueReceive((QueueHandle_t) q, item, ticks(timeout_ms)) == pdTRUE;
 }
 
+struct task_start { void (*fn)(void *); void *arg; };
+static void task_tramp(void *p) {
+    struct task_start t = *(struct task_start *) p;
+    free(p);
+    t.fn(t.arg);
+    vTaskDelete(NULL); /* a FreeRTOS task function must not return */
+}
 int os_task_start(const char *name, void (*fn)(void *), void *arg, size_t stack_bytes, int prio) {
-    return xTaskCreatePinnedToCore(fn, name, stack_bytes, arg, prio, NULL, tskNO_AFFINITY) == pdPASS ? 0 : -1;
+    struct task_start *t = malloc(sizeof *t);
+    if (!t) return -1;
+    t->fn = fn;
+    t->arg = arg;
+    if (xTaskCreatePinnedToCore(task_tramp, name, stack_bytes, t, prio, NULL, tskNO_AFFINITY) == pdPASS) return 0;
+    free(t);
+    return -1;
 }
 void os_sleep_ms(uint32_t ms) { vTaskDelay(ticks(ms)); }
 uint64_t os_now_ms(void) { return (uint64_t) (esp_timer_get_time() / 1000); }
