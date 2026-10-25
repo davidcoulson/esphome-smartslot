@@ -21,6 +21,17 @@ void test_microlink_probe_cases(void);
 void test_uartsel_init_records_level(void);
 void test_comm_fail_goes_stale_after_three(void);
 
+void test_proto_list_var_escaping(void);
+void test_proto_list_rw_cmd_enum(void);
+void test_proto_big_list_var_is_complete(void);
+void test_proto_get_var_type_desc(void);
+void test_proto_data_stale(void);
+void test_proto_instcmd_auth(void);
+void test_proto_result_mapping(void);
+void test_proto_set_var_unquotes(void);
+void test_proto_login_logout_misc(void);
+void test_proto_ver_netver_and_send_failure(void);
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_setinfo_getinfo_roundtrip);
@@ -37,5 +48,15 @@ int main(void) {
     RUN_TEST(test_microlink_probe_cases);
     RUN_TEST(test_uartsel_init_records_level);
     RUN_TEST(test_comm_fail_goes_stale_after_three);
+    RUN_TEST(test_proto_list_var_escaping);
+    RUN_TEST(test_proto_list_rw_cmd_enum);
+    RUN_TEST(test_proto_big_list_var_is_complete);
+    RUN_TEST(test_proto_get_var_type_desc);
+    RUN_TEST(test_proto_data_stale);
+    RUN_TEST(test_proto_instcmd_auth);
+    RUN_TEST(test_proto_result_mapping);
+    RUN_TEST(test_proto_set_var_unquotes);
+    RUN_TEST(test_proto_login_logout_misc);
+    RUN_TEST(test_proto_ver_netver_and_send_failure);
     return UNITY_END();
 }
