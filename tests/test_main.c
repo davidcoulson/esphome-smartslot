@@ -38,6 +38,10 @@ void test_upsd_overlong_line_rejected(void);
 void test_upsd_line_just_under_limit_is_handled(void);
 void test_upsd_logout_closes_and_numlogins_counts(void);
 
+void test_nutdrv_waits_for_probe_then_runs(void);
+void test_nutdrv_instcmd_runs_on_driver_task(void);
+void test_nutdrv_five_stale_polls_return_to_no_ups(void);
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_setinfo_getinfo_roundtrip);
@@ -69,5 +73,8 @@ int main(void) {
     RUN_TEST(test_upsd_overlong_line_rejected);
     RUN_TEST(test_upsd_line_just_under_limit_is_handled);
     RUN_TEST(test_upsd_logout_closes_and_numlogins_counts);
+    RUN_TEST(test_nutdrv_waits_for_probe_then_runs);
+    RUN_TEST(test_nutdrv_instcmd_runs_on_driver_task);
+    RUN_TEST(test_nutdrv_five_stale_polls_return_to_no_ups);
     return UNITY_END();
 }
