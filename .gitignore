@@ -1,0 +1,5 @@
+.esphome/
+tests/build/
+*.o
+__pycache__/
+example/secrets.yaml

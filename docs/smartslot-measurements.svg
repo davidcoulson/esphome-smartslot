@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 820" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <style>
+    .board{fill:#1f6f3f;stroke:#0b3d20;stroke-width:2}.tab{fill:#d9b200;stroke:#0b3d20;stroke-width:2}
+    .finger{fill:#c57c1e;stroke:#5a3300;stroke-width:1}.bracket{fill:#bfc4c9;stroke:#555;stroke-width:2}
+    .port{fill:#888;stroke:#333;stroke-width:1.5}.hole{fill:#fff;stroke:#0b3d20;stroke-width:2}
+    .dim{stroke:#d00;stroke-width:1.5;fill:none}.dimtxt{fill:#d00;font-weight:bold;font-size:15px}
+    .done{fill:#0a7a2a;font-weight:bold;font-size:15px}.note{fill:#222;font-size:13px}.lbl{fill:#222}
+  </style>
+  <rect width="1100" height="820" fill="#fff"/>
+  <text x="20" y="28" font-size="20" font-weight="bold" class="lbl">AP9641 (640-2427A) SmartSlot card, component side up, bracket left. Scale 6 px/mm.</text>
+  <text x="20" y="48" class="note">Green = measured. Red = still needed, numbered in order of importance. Holes and notch are placed from your photos (±1 mm).</text>
+
+  <!-- bracket -->
+  <rect x="150" y="44" width="50" height="724" class="bracket"/><path d="M150 141 L162 141 L162 153 L150 153" fill="#fff" stroke="#555" stroke-width="2"/><path d="M150 659 L162 659 L162 671 L150 671" fill="#fff" stroke="#555" stroke-width="2"/>
+  <rect x="160" y="150" width="30" height="130" class="port"/><text x="60" y="220" class="note">3 I/O ports</text>
+  <rect x="160" y="400" width="30" height="35" class="port"/><text x="90" y="423" class="note">micro-USB</text>
+  <rect x="160" y="520" width="30" height="110" class="port"/><text x="110" y="580" class="note">RJ45</text>
+
+  <!-- board: 103.18 x 101.81 mm -> 619 x 611 px, origin (200,100). tab 27.58 wide (165 px), 4.34 protrusion (26 px), top of tab 8.5 mm (51 px) below top edge; notch ~7x7 mm (42 px) below tab -->
+  <path class="board" d="M200 100 L819 100 L819 141 L845 141 L845 306 L819 306 L819 348 L777 348 L777 390 L819 390 L819 711 L200 711 Z"/>
+  <rect x="819" y="141" width="26" height="165" class="tab"/>
+  <!-- 10 fingers at 2.54 mm = 15.2 px pitch; top two long -->
+  <g>
+    <rect x="800" y="148" width="44" height="8" class="finger"/><rect x="800" y="163" width="44" height="8" class="finger"/>
+    <rect x="811" y="178" width="33" height="8" class="finger"/><rect x="811" y="193" width="33" height="8" class="finger"/>
+    <rect x="811" y="209" width="33" height="8" class="finger"/><rect x="811" y="224" width="33" height="8" class="finger"/>
+    <rect x="811" y="239" width="33" height="8" class="finger"/><rect x="811" y="254" width="33" height="8" class="finger"/>
+    <rect x="811" y="270" width="33" height="8" class="finger"/><rect x="811" y="285" width="33" height="8" class="finger"/>
+  </g>
+
+  <!-- done dims -->
+  <line x1="200" y1="745" x2="845" y2="745" class="dim" stroke="#0a7a2a"/><text x="430" y="765" class="done">A = 107.52 (to tab tip)   A2 = 103.18 (to main edge)   D = A − A2 = 4.34</text>
+  <line x1="1000" y1="100" x2="1000" y2="711" class="dim" stroke="#0a7a2a"/><text x="1008" y="410" class="done">B = 101.81</text>
+  <line x1="900" y1="141" x2="900" y2="306" class="dim" stroke="#0a7a2a"/><text x="908" y="230" class="done">C = 27.58</text>
+
+  <!-- needed -->
+  <line x1="870" y1="100" x2="870" y2="141" class="dim" stroke="#0a7a2a"/><text x="876" y="125" class="done">E = 6.92</text>
+  <text x="560" y="385" class="dimtxt">1  H: notch below the tab: how far it cuts in, how tall,</text>
+  <text x="560" y="403" class="dimtxt">    H2 = 5.06 tall (measured), ≈ 8 deep (photo)</text>
+  <text x="620" y="170" class="dimtxt" text-anchor="end">2  F ≈ 10, F2 ≈ 9.2 (photo), W = 1.35</text>
+  <text x="620" y="190" class="done" text-anchor="end">G = 2.09</text>
+  <text x="210" y="80" class="done">K = 37 × 120.72, U slots 5.84 deep at 16.18 from each end</text>
+  <text x="210" y="98" class="done">K2 = 1.42 (board sits against the plate)</text>
+  <text x="300" y="440" class="done">J = 1.52</text>
+  <text x="300" y="470" class="done">M = window 28 × 95, board slit 5 high and wider than the window, depth to contacts 98</text>
+  <text x="300" y="800" class="note">Tab detail: pitch 2.54 mm, 10 fingers per face; the two long ones at the top are the supply end (12 V / 24 V on one face, GND / GND on the other).</text>
+</svg>

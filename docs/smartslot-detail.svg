@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <style>
+    .board{fill:#1f6f3f;stroke:#0b3d20;stroke-width:2}.tab{fill:#d9b200;stroke:#0b3d20;stroke-width:2}
+    .finger{fill:#c57c1e;stroke:#5a3300;stroke-width:1}.bracket{fill:#bfc4c9;stroke:#555;stroke-width:2}
+    .dim{stroke:#d00;stroke-width:1.5;fill:none}.dimtxt{fill:#d00;font-weight:bold;font-size:15px}
+    .done{fill:#0a7a2a;font-weight:bold;font-size:14px}.note{fill:#222;font-size:13px}.lbl{fill:#222;font-weight:bold;font-size:16px}
+    .ext{stroke:#d00;stroke-width:1;stroke-dasharray:4 3}
+  </style>
+  <rect width="1100" height="720" fill="#fff"/>
+  <text x="20" y="28" class="lbl">Left: tab and notch, component side up, top-right corner of the card, 12 px/mm. Right: card seen edge-on from above, for K2.</text>
+
+  <!-- ===== TAB DETAIL: board top edge at y=80, board right edge at x=560; tab 4.34 mm = 52 px to x=612; tab top at 6.92 mm = 83 px -> y=163; tab height 27.58 = 331 px -> y=494; notch ~7x7 = 84 px -->
+  <path class="board" d="M60 80 L458 80 L458 163 L612 163 L612 494 L464 494 L464 553 L560 553 L560 700 L60 700 Z"/><circle cx="420" cy="118" r="8" fill="#fff" stroke="#0b3d20" stroke-width="2"/>
+  <rect x="560" y="163" width="52" height="331" class="tab"/>
+  <!-- fingers: pitch 30.5 px, width ~17 px; long = 9.1 mm = 109 px, short = 7.2 mm = 86 px, ending at tab tip x=612 -->
+  <g>
+    <rect x="488" y="172" width="124" height="17" class="finger"/><rect x="488" y="202" width="124" height="17" class="finger"/>
+    <rect x="500" y="233" width="112" height="17" class="finger"/><rect x="500" y="263" width="112" height="17" class="finger"/>
+    <rect x="500" y="294" width="112" height="17" class="finger"/><rect x="500" y="324" width="112" height="17" class="finger"/>
+    <rect x="500" y="355" width="112" height="17" class="finger"/><rect x="500" y="385" width="112" height="17" class="finger"/>
+    <rect x="500" y="416" width="112" height="17" class="finger"/><rect x="500" y="446" width="112" height="17" class="finger"/>
+  </g>
+  <text x="70" y="105" class="done">E = 6.92, C = 27.58, D = 4.34 measured. Bay ≈ 8.5 deep, lower notch ≈ 4.9 × 8, gold ≈ 9–10 long: from photo.</text><text x="70" y="125" class="note">Pin 1 is the top finger on this face (silkscreen "1 J2"); pin 19 the bottom one.</text>
+
+  <!-- G: tab top edge -> centre of first finger -->
+  <line x1="640" y1="163" x2="700" y2="163" class="ext"/><line x1="640" y1="180" x2="700" y2="180" class="ext"/>
+  <line x1="690" y1="163" x2="690" y2="180" class="dim"/>
+  <text x="705" y="178" class="done">G = 2.09</text>
+
+  <!-- F: long finger length, F2: short finger length (measure the gold, from its inner end to the tab tip) -->
+  <line x1="488" y1="150" x2="612" y2="150" class="dim"/><line x1="488" y1="144" x2="488" y2="156" class="dim"/><line x1="612" y1="144" x2="612" y2="156" class="dim"/>
+  <text x="300" y="150" class="dimtxt" text-anchor="end">F  long finger: gold length, inner end → tab tip</text><line x1="305" y1="146" x2="500" y2="150" class="ext"/>
+  <line x1="500" y1="475" x2="612" y2="475" class="dim"/><line x1="500" y1="469" x2="500" y2="481" class="dim"/>
+  <text x="300" y="480" class="dimtxt" text-anchor="end">F2  short finger: gold length, inner end → tab tip</text><line x1="305" y1="476" x2="523" y2="475" class="ext"/>
+  <text x="300" y="500" class="done" text-anchor="end">W = 1.35</text><line x1="305" y1="496" x2="523" y2="455" class="ext"/>
+
+  <!-- H: notch -->
+  <line x1="464" y1="575" x2="560" y2="575" class="dim"/><line x1="464" y1="569" x2="464" y2="581" class="dim"/><line x1="560" y1="569" x2="560" y2="581" class="dim"/>
+  <text x="300" y="580" class="dimtxt" text-anchor="end">H1  lower notch depth, main edge → notch bottom (photo ≈ 8)</text><line x1="305" y1="576" x2="461" y2="575" class="ext"/>
+  <line x1="640" y1="494" x2="640" y2="553" class="dim"/><line x1="634" y1="494" x2="646" y2="494" class="dim"/><line x1="634" y1="553" x2="646" y2="553" class="dim"/>
+  <line x1="612" y1="494" x2="640" y2="494" class="ext"/><line x1="560" y1="553" x2="640" y2="553" class="ext"/>
+  <text x="652" y="530" class="done">H2 = 5.06</text>
+  <line x1="458" y1="60" x2="560" y2="60" class="dim"/><line x1="458" y1="54" x2="458" y2="66" class="dim"/><line x1="560" y1="54" x2="560" y2="66" class="dim"/><text x="300" y="64" class="dimtxt" text-anchor="end">H0  upper bay depth, main edge → bay wall (photo ≈ 8.5)</text>
+  <text x="70" y="690" class="note">H0, H1 (bay/notch depth, photo ≈ 8.5 / 8) and F, F2 (photo ≈ 10 / 9.2) are taken from the ruler photo; the board adds clearance margins.</text>
+
+  <!-- ===== K2 side view: looking down on the card edge; plate at left -->
+  <text x="780" y="330" class="lbl">K2: card edge-on</text>
+  <rect x="800" y="360" width="14" height="300" class="bracket"/>
+  <text x="790" y="680" class="note">bracket plate</text>
+  <rect x="840" y="500" width="240" height="16" class="board"/>
+  <text x="860" y="540" class="note">board, 1.52 thick, seen edge-on</text>
+  <line x1="800" y1="470" x2="840" y2="470" class="dim"/><line x1="800" y1="464" x2="800" y2="476" class="dim"/><line x1="840" y1="464" x2="840" y2="476" class="dim"/>
+  <line x1="800" y1="360" x2="800" y2="470" class="ext"/><line x1="840" y1="470" x2="840" y2="500" class="ext"/>
+  <text x="850" y="450" class="done">K2 = 1.42 (board against the plate; plate thickness)</text>
+  <text x="850" y="470" class="note">(the face you see from outside the UPS)</text>
+  <text x="780" y="600" class="note">Check: K2 + A2 (103.18) should be close to the</text>
+  <text x="780" y="618" class="note">98 mm slot depth plus the finger length. If K2 ≈ 5,</text>
+  <text x="780" y="636" class="note">that was probably the 5 in your "28 × 95 × 5".</text>
+</svg>

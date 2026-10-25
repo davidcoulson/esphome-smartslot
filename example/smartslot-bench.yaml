@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Bench config: ESP32-P4 board with an IP101 PHY, UART1 to a MAX3232 and the APC 940-0625A cable into the UPS front RJ45.
+# Copy secrets.yaml.example to secrets.yaml and fill it in before `esphome run`.
+esphome:
+  name: smartslot-bench
+
+esp32:
+  board: esp32-p4-evboard
+  variant: esp32p4
+  flash_size: 16MB
+  # engineering_sample: true   # set per `esptool chip_id` (revision < v3.0 needs it)
+
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  power_pin: GPIO51
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+
+smartslot:
+  tx_pin: GPIO47
+  rx_pin: GPIO48
+  uart_sel_pin: GPIO53
+  uart_sel_level: 0
+  uart_num: 1
+  cmdsrc: rj45        # bench cable; use smartslot1 in the real card
+  baud_rate: 9600
+  update_interval: 10s
+  nut:
+    port: 3493
+    username: !secret nut_user
+    password: !secret nut_password
+
+api:
+  encryption:
+    key: !secret api_key
+ota:
+  - platform: esphome
+    password: !secret ota_password
+logger:
+  level: INFO
+web_server:
+status_led:
+  pin: GPIO54
+
+# Entities are enabled in Task 8:
+# sensor:
+#   - platform: smartslot
+#     variable: battery.charge
+#     name: Battery charge
+# text_sensor:
+#   - platform: smartslot
+#     variable: ups.status
+#     name: UPS status
+# button:
+#   - platform: smartslot
+#     command: beeper.toggle
+#     name: Toggle beeper
