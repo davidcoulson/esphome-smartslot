@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "nutshim.h"
+#include "serial_host.h"
 #include "unity.h"
 
-void setUp(void) { nutshim_reset_for_test(); }
+void setUp(void) { nutshim_reset_for_test(); serial_host_reset(); }
 void tearDown(void) {}
 
 void test_setinfo_getinfo_roundtrip(void);
@@ -15,6 +16,10 @@ void test_table_full_is_rejected_not_corrupting(void);
 void test_getval_testvar_addvar(void);
 void test_fatalx_marks_stale_and_calls_hook(void);
 void test_debug_and_log_helpers_do_not_crash(void);
+void test_serial_loopback_and_timeout(void);
+void test_microlink_probe_cases(void);
+void test_uartsel_init_records_level(void);
+void test_comm_fail_goes_stale_after_three(void);
 
 int main(void) {
     UNITY_BEGIN();
@@ -28,5 +33,9 @@ int main(void) {
     RUN_TEST(test_getval_testvar_addvar);
     RUN_TEST(test_fatalx_marks_stale_and_calls_hook);
     RUN_TEST(test_debug_and_log_helpers_do_not_crash);
+    RUN_TEST(test_serial_loopback_and_timeout);
+    RUN_TEST(test_microlink_probe_cases);
+    RUN_TEST(test_uartsel_init_records_level);
+    RUN_TEST(test_comm_fail_goes_stale_after_three);
     return UNITY_END();
 }

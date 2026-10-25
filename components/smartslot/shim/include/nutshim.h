@@ -34,8 +34,17 @@ void nutshim_setvar_table(const char *const *kv, size_t n);
 /* Called by fatalx() after data was marked stale. Default: log, wait 5 s, restart. */
 extern void (*nutshim_fatal_hook)(int status);
 
+/* Serial: pins are stored before the driver task starts (the host build ignores them). */
+void nutshim_serial_config(int uart_num, int tx_gpio, int rx_gpio);
+/* Drives UART_SEL as a push-pull output at `level` before anything touches the UART. */
+void uartsel_init(int gpio, int level);
+/* 9600 baud, send 0xFD, read for microlink_probe_ms (1500): >= 8 bytes and the first not 0x00 means a Microlink UPS. */
+bool microlink_probe(void);
+extern uint32_t microlink_probe_ms;
+
 #ifndef ESP_PLATFORM
 void nutshim_reset_for_test(void);
+extern int uartsel_host_level;
 #endif
 
 #ifdef __cplusplus
