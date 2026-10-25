@@ -40,8 +40,8 @@ NUT_SCHEMA = cv.Schema(
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(SmartSlot),
-        cv.Optional(CONF_TX_PIN, default="GPIO47"): pins.internal_gpio_output_pin_number,
-        cv.Optional(CONF_RX_PIN, default="GPIO48"): pins.internal_gpio_input_pin_number,
+        cv.Optional(CONF_TX_PIN, default="GPIO20"): pins.internal_gpio_output_pin_number,
+        cv.Optional(CONF_RX_PIN, default="GPIO21"): pins.internal_gpio_input_pin_number,
         cv.Optional(CONF_UART_SEL_PIN, default="GPIO53"): pins.internal_gpio_output_pin_number,
         cv.Optional(CONF_UART_SEL_LEVEL, default=0): cv.one_of(0, 1, int=True),
         cv.Optional(CONF_UART_NUM, default=1): cv.int_range(min=0, max=4),

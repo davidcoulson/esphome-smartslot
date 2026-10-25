@@ -26,8 +26,8 @@ external_components:
       path: ../components
 
 smartslot:
-  tx_pin: GPIO47
-  rx_pin: GPIO48
+  tx_pin: GPIO20
+  rx_pin: GPIO21
   uart_sel_pin: GPIO53
   uart_sel_level: 0
   uart_num: 1

@@ -44,8 +44,8 @@ external_components:
   - source: github://davidcoulson/esphome-smartslot@main
     components: [smartslot]
 smartslot:
-  tx_pin: GPIO47
-  rx_pin: GPIO48
+  tx_pin: GPIO20
+  rx_pin: GPIO21
   uart_sel_pin: GPIO53
   cmdsrc: smartslot1
   nut:

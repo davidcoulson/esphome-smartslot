@@ -26,8 +26,8 @@ ethernet:            # stock ESPHome, IP101 PHY on the ESP32-P4 EMAC
   phy_addr: 1
 
 smartslot:
-  tx_pin: GPIO47          # defaults shown
-  rx_pin: GPIO48
+  tx_pin: GPIO20          # defaults shown
+  rx_pin: GPIO21
   uart_sel_pin: GPIO53
   uart_sel_level: 0
   uart_num: 1
