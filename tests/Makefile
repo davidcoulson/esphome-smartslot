@@ -12,3 +12,20 @@ run: build/tests
 build/tests: $(SRCS) $(wildcard ../components/smartslot/*/*.c ../components/smartslot/*/*.h ../components/smartslot/shim/include/*.h *.h)
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(SRCS) -o $@ -lpthread
+
+# Host tests for the SNMP agent core (plain C++, asserts): `make snmp`
+.PHONY: snmp
+snmp: build/test_snmp
+	./build/test_snmp
+
+build/test_snmp: test_snmp.cpp ../components/snmp_agent/snmp_core.cpp ../components/snmp_agent/snmp_core.h
+	@mkdir -p build
+	$(CXX) -std=c++17 -Wall -Wextra -g -O1 -fsanitize=address,undefined -I../components/snmp_agent test_snmp.cpp ../components/snmp_agent/snmp_core.cpp -o $@ -lpthread
+
+.PHONY: snmp-serve
+snmp-serve: build/snmp_host
+	./build/snmp_host $(or $(PORT),1161)
+
+build/snmp_host: snmp_host.cpp ../components/snmp_agent/snmp_core.cpp ../components/snmp_agent/snmp_core.h
+	@mkdir -p build
+	$(CXX) -std=c++17 -Wall -Wextra -g -I../components/snmp_agent snmp_host.cpp ../components/snmp_agent/snmp_core.cpp -o $@ -lpthread

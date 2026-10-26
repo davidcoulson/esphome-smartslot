@@ -53,13 +53,86 @@ status_led:
 
 sensor:
   - platform: smartslot
+    id: battery_charge
     variable: battery.charge
     name: Battery charge
+  - platform: smartslot
+    id: battery_runtime
+    variable: battery.runtime
+    name: Battery runtime
+  - platform: smartslot
+    id: battery_temp
+    variable: battery.temperature
+    name: Battery temperature
+  - platform: smartslot
+    id: input_voltage
+    variable: input.voltage
+    name: Input voltage
+  - platform: smartslot
+    id: output_voltage
+    variable: output.voltage
+    name: Output voltage
+  - platform: smartslot
+    id: ups_load
+    variable: ups.load
+    name: UPS load
 text_sensor:
   - platform: smartslot
+    id: ups_status
     variable: ups.status
     name: UPS status
+  - platform: smartslot
+    id: ups_model
+    variable: ups.model
+    name: UPS model
 button:
   - platform: smartslot
     command: beeper.toggle
     name: Toggle beeper
+
+# SNMPv1/v2c agent (read-only). Default table: APC PowerNet MIB (what NUT snmp-ups mibs=apcc and most monitoring
+# tools query) plus the RFC 1628 UPS-MIB. Add an OID by adding a line here; no C++ needed.
+# type: integer | gauge | timeticks | string | oid; scale multiplies the sensor value first.
+# map (text sensor -> number): first token of the state that matches wins, "*" is the fallback.
+snmp_agent:
+  port: 161
+  community: public
+  sys_name: smartslot-bench       # default: the ESPHome node name
+  sys_contact: admin@example.com
+  sys_location: Rack 1
+  readings:
+    # --- APC PowerNet MIB, 1.3.6.1.4.1.318.1.1.1
+    - { oid: 1.3.6.1.4.1.318.1.1.1.1.1.1.0, text_sensor: ups_model, type: string }          # upsBasicIdentModel
+    - oid: 1.3.6.1.4.1.318.1.1.1.2.1.1.0                                                    # upsBasicBatteryStatus
+      text_sensor: ups_status
+      type: integer
+      map: { LB: 3, RB: 4, "*": 2 }                  # 2 normal, 3 low, 4 fault (replace battery)
+    - { oid: 1.3.6.1.4.1.318.1.1.1.2.2.1.0, sensor: battery_charge, type: gauge }           # upsAdvBatteryCapacity %
+    - { oid: 1.3.6.1.4.1.318.1.1.1.2.2.2.0, sensor: battery_temp, type: gauge }             # upsAdvBatteryTemperature C
+    - { oid: 1.3.6.1.4.1.318.1.1.1.2.2.3.0, sensor: battery_runtime, type: timeticks, scale: 100 }  # RunTimeRemaining, 1/100 s
+    - { oid: 1.3.6.1.4.1.318.1.1.1.3.2.1.0, sensor: input_voltage, type: gauge }            # upsAdvInputLineVoltage
+    - { oid: 1.3.6.1.4.1.318.1.1.1.4.2.1.0, sensor: output_voltage, type: gauge }           # upsAdvOutputVoltage
+    - { oid: 1.3.6.1.4.1.318.1.1.1.4.2.3.0, sensor: ups_load, type: gauge }                 # upsAdvOutputLoad %
+    - oid: 1.3.6.1.4.1.318.1.1.1.4.1.1.0                                                    # upsBasicOutputStatus
+      text_sensor: ups_status
+      type: integer
+      map: { OB: 3, BYPASS: 6, OFF: 7, OL: 2, "*": 1 }  # 2 onLine, 3 onBattery, 6 softwareBypass, 7 off, 1 unknown
+    # --- RFC 1628 UPS-MIB, 1.3.6.1.2.1.33.1
+    - { oid: 1.3.6.1.2.1.33.1.1.1.0, value: APC, type: string }                             # upsIdentManufacturer
+    - { oid: 1.3.6.1.2.1.33.1.1.2.0, text_sensor: ups_model, type: string }                 # upsIdentModel
+    - oid: 1.3.6.1.2.1.33.1.2.1.0                                                           # upsBatteryStatus
+      text_sensor: ups_status
+      type: integer
+      map: { LB: 3, RB: 4, "*": 2 }                  # 2 normal, 3 low, 4 depleted
+    - { oid: 1.3.6.1.2.1.33.1.2.3.0, sensor: battery_runtime, type: integer, scale: 0.016667 }  # upsEstimatedMinutesRemaining
+    - { oid: 1.3.6.1.2.1.33.1.2.4.0, sensor: battery_charge, type: integer }                # upsEstimatedChargeRemaining %
+    - { oid: 1.3.6.1.2.1.33.1.2.7.0, sensor: battery_temp, type: integer }                  # upsBatteryTemperature C
+    - { oid: 1.3.6.1.2.1.33.1.3.2.0, value: "1", type: integer }                            # upsInputNumLines
+    - { oid: 1.3.6.1.2.1.33.1.3.3.1.3.1, sensor: input_voltage, type: integer }             # upsInputVoltage[1]
+    - oid: 1.3.6.1.2.1.33.1.4.1.0                                                           # upsOutputSource
+      text_sensor: ups_status
+      type: integer
+      map: { OB: 5, BYPASS: 4, OFF: 2, OL: 3, "*": 1 }  # 3 normal, 5 battery, 4 bypass, 2 none, 1 other
+    - { oid: 1.3.6.1.2.1.33.1.4.3.0, value: "1", type: integer }                            # upsOutputNumLines
+    - { oid: 1.3.6.1.2.1.33.1.4.4.1.2.1, sensor: output_voltage, type: integer }            # upsOutputVoltage[1]
+    - { oid: 1.3.6.1.2.1.33.1.4.4.1.5.1, sensor: ups_load, type: integer }                  # upsOutputPercentLoad[1]
