@@ -111,6 +111,7 @@ async def to_code(config):
         esp32.add_partition("tsdb", "data", "littlefs", h[CONF_SIZE])
         add_idf_component(name="zakery292/esp_tsdb", ref="^2.4.1")  # >= 2.4.0: sidecar header, esp32p4 target
         add_idf_component(name="joltwallet/littlefs", ref="^1.16")
+        esp32.require_vfs_dir()  # esp_tsdb >= 2.4.4 keeps its sidecar in a directory (mkdir/rmdir)
         ota.request_ota_state_listeners()
         cg.add_define("USE_SMARTSLOT_HISTORY")
         hist = cg.new_Pvariable(h[CONF_ID])

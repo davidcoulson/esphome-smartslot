@@ -241,7 +241,6 @@ button:
 snmp_agent:
   port: 161
   community: public
-  sys_name: smartslot-bench       # default: the ESPHome node name (the web UI's sysName entity is not wired in yet)
   sys_contact: admin@example.com
   sys_location: Rack 1
   readings:

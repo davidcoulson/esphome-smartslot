@@ -184,6 +184,8 @@ stored history.
 - `components/snmp_agent/` SNMP agent: `snmp_core.*` (BER codec and request handler, no ESPHome dependency) and the ESPHome glue.
 - `tests/` host tests: `make -C tests` (gcc + Unity) and `make -C tests snmp` (SNMP core).
 - `example/smartslot-bench.yaml` bench config; `esphome compile example/smartslot-bench.yaml`.
+- `example/smartslot-card.yaml` the smartslot-hw card (DP83848, `cmdsrc: smartslot1`); includes the bench config and
+  overrides only the differences. First install over USB-C, since OTA does not apply the history partition.
 
 ## Entities
 

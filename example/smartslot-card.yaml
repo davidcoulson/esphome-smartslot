@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The smartslot-hw card in a Smart-UPS SmartSlot: DP83848 PHY, 50 MHz oscillator into GPIO50, UART through the slot.
+# Everything else (sensors, web UI, SNMP, history, controls) comes from the bench config; only the differences are here.
+# The card's RMII pins (TX_EN 49, TXD0/1 34/35, CRS_DV 28, RXD0/1 29/30) are ESP-IDF's P4 defaults, so they need no
+# config. First install by USB-C (J2): the history partition is not applied by OTA.
+packages:
+  bench: !include smartslot-bench.yaml
+
+esphome:
+  name: smartslot-card
+
+esp32:
+  flash_size: 16MB             # 32 MB module: 32MB here and history size 24MB below
+  # engineering_sample: true   # module revision < v3.0 (check with `esptool.py chip_id`)
+
+ethernet:
+  type: DP83848
+  phy_addr: 1                  # DP83848 strap default (PHYAD0 pulled up internally)
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  power_pin: GPIO51            # PHY reset, JP11 1-2; R16 holds it in reset until the firmware drives it high
+  clk:
+    mode: CLK_EXT_IN           # Y1 via R25 and JP10 1-2; with JP10 2-3 the clock comes from the PHY's CLK_OUT
+    pin: GPIO50
+
+smartslot:
+  cmdsrc: smartslot1           # UART through slot pins 8/9, UART_SEL (pin 11) driven low on GPIO53
+  # tx_pin GPIO20, rx_pin GPIO21, uart_sel_pin GPIO53 and status_led GPIO54 match the card's JP12-JP15 defaults
+  history:
+    size: 8MB                  # 24MB on a 32 MB module
