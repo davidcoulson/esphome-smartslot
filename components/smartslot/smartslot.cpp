@@ -61,10 +61,12 @@ void SmartSlot::update() {
   }
   for (auto &p : this->text_sensors_)
     if (nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf)) p.first->publish_state(buf);
-  if (nutdrv_state() != NUTDRV_RUNNING || !dstate_is_dataok())
+  if (nutdrv_state() != NUTDRV_RUNNING || !dstate_is_dataok()) {
+    this->stale_polls_++;
     this->status_set_warning();
-  else
+  } else {
     this->status_clear_warning();
+  }
 }
 
 void SmartSlot::dump_config() {
