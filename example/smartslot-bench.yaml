@@ -11,6 +11,7 @@ esp32:
   # engineering_sample: true   # set per `esptool chip_id` (revision < v3.0 needs it)
 
 ethernet:
+  id: eth
   type: IP101
   mdc_pin: GPIO31
   mdio_pin: GPIO52
@@ -26,6 +27,7 @@ external_components:
       path: ../components
 
 smartslot:
+  id: ups
   tx_pin: GPIO20
   rx_pin: GPIO21
   uart_sel_pin: GPIO53
@@ -38,6 +40,12 @@ smartslot:
     port: 3493
     username: !secret nut_user
     password: !secret nut_password
+  history:                   # on-flash history at /history; adds a `tsdb` partition (see README)
+    size: 8MB                # 24MB on a 32 MB module
+    interval: 5min
+
+time:
+  - platform: sntp           # history rows are keyed by real time
 
 api:
   encryption:
@@ -45,9 +53,29 @@ api:
 ota:
   - platform: esphome
     password: !secret ota_password
+  - platform: web_server       # firmware upload from the web UI
 logger:
   level: INFO
 web_server:
+  version: 3
+  local: true                  # UI assets served from flash; no internet needed
+  auth:
+    username: !secret web_user
+    password: !secret web_password
+    type: digest
+  sorting_groups:
+    - id: grp_status
+      name: Status
+      sorting_weight: 10
+    - id: grp_battery
+      name: Battery
+      sorting_weight: 20
+    - id: grp_power
+      name: Input/Output
+      sorting_weight: 30
+    - id: grp_settings
+      name: Settings
+      sorting_weight: 40
 status_led:
   pin: GPIO54
 
@@ -56,39 +84,101 @@ sensor:
     id: battery_charge
     variable: battery.charge
     name: Battery charge
+    unit_of_measurement: "%"
+    web_server: { sorting_group_id: grp_battery }
   - platform: smartslot
     id: battery_runtime
     variable: battery.runtime
     name: Battery runtime
+    unit_of_measurement: s
+    device_class: duration
+    web_server: { sorting_group_id: grp_battery }
+  - platform: smartslot
+    id: battery_voltage
+    variable: battery.voltage
+    name: Battery voltage
+    unit_of_measurement: V
+    accuracy_decimals: 1
+    web_server: { sorting_group_id: grp_battery }
   - platform: smartslot
     id: battery_temp
     variable: battery.temperature
     name: Battery temperature
+    unit_of_measurement: °C
+    device_class: temperature
+    web_server: { sorting_group_id: grp_battery }
   - platform: smartslot
     id: input_voltage
     variable: input.voltage
     name: Input voltage
+    unit_of_measurement: V
+    web_server: { sorting_group_id: grp_power }
   - platform: smartslot
     id: output_voltage
     variable: output.voltage
     name: Output voltage
+    unit_of_measurement: V
+    web_server: { sorting_group_id: grp_power }
   - platform: smartslot
     id: ups_load
     variable: ups.load
-    name: UPS load
+    name: Load
+    unit_of_measurement: "%"
+    web_server: { sorting_group_id: grp_power }
+  - platform: smartslot
+    id: ups_temp
+    variable: ups.temperature
+    name: UPS temperature
+    unit_of_measurement: °C
+    device_class: temperature
+    web_server: { sorting_group_id: grp_status }
+  - platform: uptime
+    name: Uptime
+    web_server: { sorting_group_id: grp_status }
+  - platform: template
+    name: Stale polls
+    lambda: return id(ups).stale_polls();
+    accuracy_decimals: 0
+    state_class: total_increasing
+    entity_category: diagnostic
+    update_interval: 10s
+    web_server: { sorting_group_id: grp_status }
+
+binary_sensor:
+  - platform: template
+    name: Ethernet link
+    device_class: connectivity
+    lambda: return id(eth).is_connected();
+    web_server: { sorting_group_id: grp_status }
+
 text_sensor:
   - platform: smartslot
     id: ups_status
     variable: ups.status
     name: UPS status
+    web_server: { sorting_group_id: grp_status }
   - platform: smartslot
     id: ups_model
     variable: ups.model
     name: UPS model
+    web_server: { sorting_group_id: grp_status }
+  - platform: ethernet_info
+    ip_address:
+      name: IP address
+      web_server: { sorting_group_id: grp_status }
+    mac_address:
+      name: MAC address
+      web_server: { sorting_group_id: grp_status }
+
 button:
   - platform: smartslot
     command: beeper.toggle
     name: Toggle beeper
+    web_server: { sorting_group_id: grp_status }
+  - platform: restart
+    name: Reboot
+    web_server: { sorting_group_id: grp_settings }
+
 
 # SNMPv1/v2c agent (read-only). Default table: APC PowerNet MIB (what NUT snmp-ups mibs=apcc and most monitoring
 # tools query) plus the RFC 1628 UPS-MIB. Add an OID by adding a line here; no C++ needed.
@@ -97,7 +187,7 @@ button:
 snmp_agent:
   port: 161
   community: public
-  sys_name: smartslot-bench       # default: the ESPHome node name
+  sys_name: smartslot-bench       # default: the ESPHome node name (the web UI's sysName entity is not wired in yet)
   sys_contact: admin@example.com
   sys_location: Rack 1
   readings:
@@ -136,3 +226,62 @@ snmp_agent:
     - { oid: 1.3.6.1.2.1.33.1.4.3.0, value: "1", type: integer }                            # upsOutputNumLines
     - { oid: 1.3.6.1.2.1.33.1.4.4.1.2.1, sensor: output_voltage, type: integer }            # upsOutputVoltage[1]
     - { oid: 1.3.6.1.2.1.33.1.4.4.1.5.1, sensor: ups_load, type: integer }                  # upsOutputPercentLoad[1]
+# Runtime settings: stored in flash (restore_value) and editable from the web UI.
+# The UART pins, UART_SEL level and buffer bypass are fixed at setup (board jumpers), so there is no entity for them.
+number:
+  - platform: template
+    name: Poll interval
+    unit_of_measurement: s
+    min_value: 2
+    max_value: 300
+    step: 1
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    web_server: { sorting_group_id: grp_settings }
+    on_value:                  # also fires with the restored value at boot
+      - lambda: |-
+          id(ups).set_update_interval((uint32_t) (x * 1000));
+          id(ups).stop_poller();
+          id(ups).start_poller();
+
+# TODO: feed these into snmp_agent at runtime; today snmp_agent takes community/sysName from its own block above, so
+# these are only stored.
+text:
+  - platform: template
+    name: SNMP community
+    mode: password
+    optimistic: true
+    restore_value: true
+    initial_value: public
+    max_length: 32
+    entity_category: config
+    web_server: { sorting_group_id: grp_settings }
+  - platform: template
+    name: sysName
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: smartslot
+    max_length: 32
+    entity_category: config
+    web_server: { sorting_group_id: grp_settings }
+  - platform: template
+    name: sysLocation
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    max_length: 32
+    entity_category: config
+    web_server: { sorting_group_id: grp_settings }
+  - platform: template
+    name: sysContact
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    max_length: 32
+    entity_category: config
+    web_server: { sorting_group_id: grp_settings }

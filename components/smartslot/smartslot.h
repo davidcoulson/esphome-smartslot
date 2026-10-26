@@ -37,6 +37,8 @@ class SmartSlot : public PollingComponent {
   void register_sensor(sensor::Sensor *s, const std::string &var) { this->sensors_.emplace_back(s, var); }
   void register_text_sensor(text_sensor::TextSensor *t, const std::string &var) { this->text_sensors_.emplace_back(t, var); }
   int instcmd(const std::string &cmd);
+  // Update cycles that found the driver down or the UPS data stale (health counter for the UI).
+  uint32_t stale_polls() const { return this->stale_polls_; }
 
   void setup() override;
   void update() override;
@@ -49,6 +51,7 @@ class SmartSlot : public PollingComponent {
   uint32_t baud_{9600};
   uint16_t nut_port_{3493};
   std::string nut_user_, nut_pass_;
+  uint32_t stale_polls_{0};
   std::vector<std::pair<sensor::Sensor *, std::string>> sensors_;
   std::vector<std::pair<text_sensor::TextSensor *, std::string>> text_sensors_;
 };
