@@ -129,6 +129,9 @@ assets stored in flash (`local: true`) so it works without internet access. It a
 - Status: UPS status, UPS temperature, uptime, Ethernet link, IP and MAC address, a count of stale polls (update
   cycles where the driver was down or the UPS data stale), the beeper toggle, and the live log stream.
 - Battery: charge, runtime, voltage. Input/Output: input and output voltage, load.
+- Control: beeper, battery self-test, panel test, runtime calibration start/stop, load off/on and "shutdown, return
+  on mains" (the UPS drops the load and comes back when mains returns). Load off and shutdown work only while the
+  "Arm load or shutdown" switch is on; it resets after one command or 30 s, since the page has no confirmation dialog.
 - Settings, stored in flash and kept across reboots: poll interval (applied immediately), SNMP community, sysName,
   sysLocation, sysContact (stored only until the `snmp_agent` component lands), and a reboot button. Firmware can
   be uploaded from the page too (`ota: platform: web_server`). The UART pins, UART_SEL level and buffer bypass are
@@ -197,6 +200,14 @@ button:
   - platform: smartslot
     command: beeper.toggle        # any NUT instant command
     name: Toggle beeper
+  - platform: smartslot
+    command: load.off
+    name: Load off
+    arm: arm_controls             # optional: a switch that must be on; turned off again after the press
 ```
+
+`arm:` names a `switch:` (a template switch in the example) that guards a command. A press before the switch has
+gone on is logged and ignored; the first press after it goes on sends the command and turns the switch off, and
+that one press consumes the arming for every button sharing the switch, so each arming allows one command. The example config arms `load.off` and `shutdown.return` this way and lets the switch time out after 30 s.
 
 Nothing is published while the UPS is absent or its data is stale. `nutshim_value_for_publish` lives in `nutdrv.h`.

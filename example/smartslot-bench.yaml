@@ -73,6 +73,9 @@ web_server:
     - id: grp_power
       name: Input/Output
       sorting_weight: 30
+    - id: grp_control
+      name: Control
+      sorting_weight: 35
     - id: grp_settings
       name: Settings
       sorting_weight: 40
@@ -170,11 +173,62 @@ text_sensor:
       name: MAC address
       web_server: { sorting_group_id: grp_status }
 
+# UPS controls. The web UI has no confirmation step, so the commands that drop the load are sent only while
+# "Arm load or shutdown" is on; the switch turns itself off after one command or 30 s.
+switch:
+  - platform: template
+    id: arm_controls
+    name: Arm load or shutdown
+    icon: mdi:shield-alert
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    web_server: { sorting_group_id: grp_control }
+    turn_on_action:            # the template switch cancels this on turn-off, so a re-arm gets a fresh 30 s
+      - delay: 30s
+      - switch.turn_off: arm_controls
+
 button:
   - platform: smartslot
     command: beeper.toggle
     name: Toggle beeper
-    web_server: { sorting_group_id: grp_status }
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: test.battery.start
+    name: Battery self-test
+    icon: mdi:battery-heart-variant
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: test.panel.start
+    name: Panel test
+    icon: mdi:television-ambient-light
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: calibrate.start
+    name: Start runtime calibration
+    icon: mdi:battery-clock
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: calibrate.stop
+    name: Stop runtime calibration
+    icon: mdi:battery-clock-outline
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: load.off
+    name: Load off
+    arm: arm_controls
+    icon: mdi:power-plug-off
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: load.on
+    name: Load on
+    icon: mdi:power-plug
+    web_server: { sorting_group_id: grp_control }
+  - platform: smartslot
+    command: shutdown.return
+    name: Shutdown, return on mains
+    arm: arm_controls
+    icon: mdi:power-cycle
+    web_server: { sorting_group_id: grp_control }
   - platform: restart
     name: Reboot
     web_server: { sorting_group_id: grp_settings }
