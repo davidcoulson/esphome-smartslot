@@ -40,6 +40,12 @@ smartslot:
     port: 3493
     username: !secret nut_user
     password: !secret nut_password
+  history:                   # on-flash history at /history; adds a `tsdb` partition (see README)
+    size: 8MB                # 24MB on a 32 MB module
+    interval: 5min
+
+time:
+  - platform: sntp           # history rows are keyed by real time
 
 api:
   encryption:

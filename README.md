@@ -77,6 +77,41 @@ The server is plain HTTP, no TLS. Digest auth keeps the password itself off the 
 (including the SNMP community) and firmware upload crosses the LAN in clear and can be replayed, so keep the card on
 a trusted management VLAN and do not expose port 80 beyond it.
 
+## History on flash
+
+`smartslot: history:` keeps a long-term record of the UPS readings on the card itself, charted at
+`http://<card-ip>/history` (same login as the web UI; bookmark it, the stock `local: true` page cannot carry a link) and as JSON at
+`/history.json?from=<epoch>&to=<epoch>`. It stores battery charge, runtime, input and output voltage, load,
+temperature and the share of each interval spent on battery in [esp_tsdb](https://github.com/zakery292/esp_tsdb) on a
+LittleFS partition, the way [esphome-tigomonitor](https://github.com/RAR/esphome-tigomonitor) does (both MIT; the
+storage layout and sizing rules follow its "Saving History to Flash" guide).
+
+```yaml
+smartslot:
+  history:
+    size: 8MB          # `tsdb` partition; 24MB on a 32 MB module
+    interval: 5min     # one averaged row per interval (1min..60min)
+    update_interval: 10s   # how often the driver values are sampled into the average
+time:
+  - platform: sntp     # rows are keyed by real time; nothing is written until the clock is set
+```
+
+- Rows are the average of the samples in the interval (on-battery is the percentage of samples with `OB` in
+  `ups.status`), so the chart draws a 5-minute rollup rather than raw polls. The page buckets further: 30 days come
+  back hourly. Daily bars show minutes on battery per day.
+- Sizing: 18 bytes per row and the ring file is kept to half the partition (LittleFS is copy-on-write and needs free
+  blocks). 8 MB holds about 2 years at 5 min; 24 MB about 6 years. Halving the interval halves the span.
+- Each row is one flash write (about 0.5 s on a writer task; the ESPHome loop is not blocked). Snapshots during an OTA
+  are skipped. The stats line on the page shows rows, capacity, writes, evictions and partition use.
+
+**Partition table and first install.** `history:` appends a `tsdb` partition to ESPHome's generated partition table
+and the two app slots shrink to fit (16 MB: about 3.7 MB each, 8 MB tsdb). A partition table change is not applied by
+OTA, so the first install of a build with `history:` (and any later change of `size:`) must be flashed over USB
+serial (`esphome run` with the board on USB). Until then the card boots with the old table, logs
+`no tsdb partition in flash` and runs without history. The `flash_size:` under `esp32:` must match the module:
+`16MB` with `size: 8MB`, or `32MB` with `size: 24MB`. Changing `size:` later reformats the partition and drops the
+stored history.
+
 ## Layout
 
 - `components/smartslot/` ESPHome glue (`*.py`, `smartslot*.cpp/h`) and `CMakeLists.txt`, which ESP-IDF builds
