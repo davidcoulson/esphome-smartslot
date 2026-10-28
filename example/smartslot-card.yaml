@@ -5,6 +5,7 @@
 # config. First install by USB-C (J2): the history partition is not applied by OTA.
 packages:
   bench: !include smartslot-bench.yaml
+  sensors: !include sensor-ports.yaml   # two RJ12 sensor ports J8/J9; a port with nothing plugged in reports no I2C devices
 
 esphome:
   name: smartslot-card
