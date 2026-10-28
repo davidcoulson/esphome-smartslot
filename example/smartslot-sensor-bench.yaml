@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Bench config for the sensor ports: the bench board plus sensor-ports.yaml with a BME280 on port A.
-# Port A uses GPIO26/27, the card's own pins: neither is used by smartslot-bench.yaml (it uses 20, 21, 31, 50-54),
-# so no substitution is needed; port B stays at its defaults (GPIO32/33). If your dev board's header lacks
-# GPIO26/27, override sens_a_sda/sens_a_scl below with two free header GPIOs.
+# Port A uses GPIO26/27, the card's own pins: neither is used by smartslot-bench.yaml (it uses 20, 21, 31, 50-54).
+# If your dev board's header lacks them, change sens_a_sda/sens_a_scl below; port B stays at its defaults (GPIO32/33).
+substitutions:
+  sens_a_sda: GPIO26
+  sens_a_scl: GPIO27
+
 packages:
   bench: !include smartslot-bench.yaml
   sensors: !include sensor-ports.yaml
