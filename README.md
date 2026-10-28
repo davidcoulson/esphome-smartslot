@@ -193,7 +193,7 @@ RJ12 pinout (6P6C, looking into the jack, pin 1 on the left with the tab down):
 
 | Pin | Signal |
 | --- | --- |
-| 1 | 3V3 (fused, 100 mA) |
+| 1 | 3V3 (current-limited per port, 0.25 A typ, 149-351 mA) |
 | 2 | DSDA+ |
 | 3 | DSCL+ |
 | 4 | DSCL- |
@@ -201,9 +201,9 @@ RJ12 pinout (6P6C, looking into the jack, pin 1 on the left with the tab down):
 | 6 | GND |
 
 - Straight-through 6P6C cables only. A 4P4C phone cord reaches pins 2-5 only (no power) and does nothing.
-- Termination: TERM closed on the last node of a chain only.
+- Termination: JP1 and JP3 (TERM) stay closed on the last node of a chain only; open both on every other node. Opening just one leaves the pairs pulled to a rail.
 - A port with nothing plugged in reports no devices on `scan`; the card keeps running.
-- Hot-plugging a cable may glitch one transaction (6.8 ohm damping after each port fuse is on the card).
+- Hot-plugging a cable may glitch one transaction (each port has a current-limited switch with a snubber on the card, and the node has its own snubber).
 - UNVERIFIED: the PCA9615 bench test over a 7 ft cable (`example/smartslot-sensor-bench.yaml`) is pending hardware.
 
 ## Layout
