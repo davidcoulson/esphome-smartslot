@@ -176,6 +176,36 @@ serial (`esphome run` with the board on USB). Until then the card boots with the
 `16MB` with `size: 8MB`, or `32MB` with `size: 24MB`. Changing `size:` later reformats the partition and drops the
 stored history.
 
+## Sensor ports
+
+The card has two RJ12 jacks (J8 = port A, J9 = port B), each a PCA9615 differential-I2C buffer for remote sensors
+such as a BME280 on a node board. `example/sensor-ports.yaml` is the package (include it as in
+`example/smartslot-card.yaml`); it sets up two `i2c:` buses at 100 kHz with `scan: true`.
+
+| Port | Bus id | SDA | SCL |
+| --- | --- | --- | --- |
+| A (J8) | `sens_a` | GPIO26 | GPIO27 |
+| B (J9) | `sens_b` | GPIO32 | GPIO33 |
+
+Override the pins with the `sens_a_sda`, `sens_a_scl`, `sens_b_sda` and `sens_b_scl` substitutions.
+
+RJ12 pinout (6P6C, looking into the jack, pin 1 on the left with the tab down):
+
+| Pin | Signal |
+| --- | --- |
+| 1 | 3V3 (fused, 100 mA) |
+| 2 | DSDA+ |
+| 3 | DSCL+ |
+| 4 | DSCL- |
+| 5 | DSDA- |
+| 6 | GND |
+
+- Straight-through 6P6C cables only. A 4P4C phone cord reaches pins 2-5 only (no power) and does nothing.
+- Termination: TERM closed on the last node of a chain only.
+- A port with nothing plugged in reports no devices on `scan`; the card keeps running.
+- Hot-plugging a cable may glitch one transaction (6.8 ohm damping after each port fuse is on the card).
+- UNVERIFIED: the PCA9615 bench test over a 7 ft cable (`example/smartslot-sensor-bench.yaml`) is pending hardware.
+
 ## Layout
 
 - `components/smartslot/` ESPHome glue (`*.py`, `smartslot*.cpp/h`) and `CMakeLists.txt`, which ESP-IDF builds
@@ -184,6 +214,7 @@ stored history.
 - `components/snmp_agent/` SNMP agent: `snmp_core.*` (BER codec and request handler, no ESPHome dependency) and the ESPHome glue.
 - `tests/` host tests: `make -C tests` (gcc + Unity) and `make -C tests snmp` (SNMP core).
 - `example/smartslot-bench.yaml` bench config; `esphome compile example/smartslot-bench.yaml`.
+- `example/sensor-ports.yaml` two PCA9615 sensor-port I2C buses; `example/smartslot-sensor-bench.yaml` bench config for it.
 - `example/smartslot-card.yaml` the smartslot-hw card (DP83848, `cmdsrc: smartslot1`); includes the bench config and
   overrides only the differences. First install over USB-C, since OTA does not apply the history partition.
 

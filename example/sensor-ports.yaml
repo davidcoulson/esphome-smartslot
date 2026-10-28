@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Two RJ12 sensor ports (J8/J9), each a PCA9615 differential-I2C buffer on the smartslot-hw card.
+# Override the pins in the including file's `substitutions:` (the including file wins over these defaults).
+substitutions:
+  sens_a_sda: GPIO26
+  sens_a_scl: GPIO27
+  sens_b_sda: GPIO32
+  sens_b_scl: GPIO33
+
+i2c:
+  - id: sens_a
+    sda: ${sens_a_sda}
+    scl: ${sens_a_scl}
+    frequency: 100kHz
+    scan: true
+  - id: sens_b
+    sda: ${sens_b_sda}
+    scl: ${sens_b_scl}
+    frequency: 100kHz
+    scan: true
+
+# Uncomment for a BME280 on port A.
+# sensor:
+#   - platform: bme280_i2c
+#     i2c_id: sens_a
+#     address: 0x76
+#     temperature: { name: "Rack front temperature" }
+#     humidity: { name: "Rack front humidity" }
+#     pressure: { name: "Rack front pressure" }
+#     update_interval: 60s
