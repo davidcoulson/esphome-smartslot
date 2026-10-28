@@ -201,7 +201,7 @@ RJ12 pinout (6P6C, looking into the jack, pin 1 on the left with the tab down):
 | 6 | GND |
 
 - Straight-through 6P6C cables only. A 4P4C phone cord reaches pins 2-5 only (no power) and does nothing.
-- Termination: JP1, JP3, JP4 and JP5 (TERM) stay closed on the last node of a chain only; open all four on every other node. Each pair has its own network behind two series jumpers, so opening all four takes the termination off the bus.
+- Termination: JP1, JP3, JP4 and JP5 (TERM) stay closed on the last node of a chain only; cut all four on every other node (they are copper-bridged: cut the bridge with a knife and check it on a continuity meter; removing solder does nothing). Each pair has its own network behind two series jumpers, so cutting all four takes the termination off the bus.
 - A port with nothing plugged in reports no devices on `scan`; the card keeps running.
 - Hot-plugging a cable may glitch one transaction (each port has a current-limited switch with a snubber on the card, and the node has its own snubber).
 - UNVERIFIED: the PCA9615 bench test over a 7 ft cable (`example/smartslot-sensor-bench.yaml`) is pending hardware.
