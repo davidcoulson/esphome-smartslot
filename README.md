@@ -205,7 +205,8 @@ RJ12 pinout (6P6C, looking into the jack, pin 1 on the left with the tab down):
 - A port with nothing plugged in reports no devices on `scan`; the card keeps running.
 - Hot-plugging a cable may glitch one transaction (each port has a current-limited switch with a snubber on the card, and the node has its own snubber).
 - UNVERIFIED: the signal at the far end of a 7 ft cable with the 750/240/750 terminations (check edges and ringing on a scope during the bench test).
-- UNVERIFIED: the PCA9615 bench test over a 7 ft cable (`example/smartslot-sensor-bench.yaml`) is pending hardware.
+- UNVERIFIED: the PCA9615 bench test (`example/smartslot-sensor-bench.yaml`, QwiicBus EndPoints over a CAT5e patch cord) is pending hardware. It checks the PCA9615 link only. It does NOT check the flat 6P6C cord, the 68 ohm series resistors or the 750/240/750 terminations. Check those on the first built card and node: the far-end waveform on the 2.1 m flat cord, the current of U8 with the bus held LOW, and the fit of the back-side Q1, Q2 and D1 on the node.
+- Port A is J8 (GPIO26 SDA / GPIO27 SCL) and port B is J9 (GPIO32 SDA / GPIO33 SCL). Seen from the bracket, J8 is the jack nearer the card's top edge (the H1 corner) and J9 the one below it.
 
 ## Layout
 

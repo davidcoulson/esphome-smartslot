@@ -16,7 +16,7 @@ esphome:
 sensor:
   - platform: bme280_i2c
     i2c_id: sens_a
-    address: 0x76
+    address: 0x77  # Adafruit 2652 default; bridging its SDO pad to GND gives 0x76
     temperature: { name: "Rack front temperature" }
     humidity: { name: "Rack front humidity" }
     pressure: { name: "Rack front pressure" }
