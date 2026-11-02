@@ -79,8 +79,6 @@ web_server:
     - id: grp_settings
       name: Settings
       sorting_weight: 40
-status_led:
-  pin: GPIO54
 
 sensor:
   - platform: smartslot
