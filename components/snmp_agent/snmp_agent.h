@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include <netinet/in.h>
+#include "lwip/sockets.h"  // sockaddr_in; newlib's netinet/in.h does not declare it under ESP-IDF
 
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/sensor/sensor.h"
