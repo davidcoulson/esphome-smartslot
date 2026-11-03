@@ -378,10 +378,11 @@ bool Agent::handle(const uint8_t *in, size_t n, Bytes &out) {
   };
   build();
   if (out.size() > MAX_RESPONSE) {
-    r = Result{E_TOOBIG, 0, echo(d.req)};
+    // v1 echoes the request (RFC 1157 4.1.2); v2c sends no varbinds (RFC 3416 4.2.1)
+    r = Result{E_TOOBIG, 0, version == 0 ? echo(d.req) : std::vector<Vb>{}};
     build();
   }
-  return true;
+  return out.size() <= MAX_RESPONSE;
 }
 
 // ---- SNMPv3 / USM (RFC 3412, RFC 3414, RFC 3826 AES, RFC 7860 SHA-2) ----
@@ -579,7 +580,8 @@ bool Agent::handle_v3_(const uint8_t *msg, size_t n, const uint8_t *p, const uin
     for (size_t i = 0; i < ml; i++) diff |= mac[i] ^ aparams[i];
     if (diff) return rep(0, nullptr, usm_stat(5), wrong_digests_);
     int64_t now = engine_time();
-    if (mboots != boots_ || mtime < now - TIME_WINDOW || mtime > now + TIME_WINDOW)
+    // At the latched maximum, boots can no longer tell restarts apart, so nothing is in the window (RFC 3414 3.2 7a).
+    if (boots_ >= 2147483647u || mboots != boots_ || mtime < now - TIME_WINDOW || mtime > now + TIME_WINDOW)
       return rep(1, u, usm_stat(2), not_in_window_);  // authenticated, so the manager can resynchronise
   }
   if (level == 2) {
@@ -600,11 +602,9 @@ bool Agent::handle_v3_(const uint8_t *msg, size_t n, const uint8_t *p, const uin
   size_t limit = std::min<size_t>(MAX_RESPONSE, (size_t) std::min<int64_t>(max_size, 65535));
   Result r = this->process_(d, false, limit - 250);  // room for the v3 header, user name and engine ID
   out = this->v3_message(msg_id, level, name, u, pdu_bytes(P_RESPONSE, d.reqid, r.err, r.idx, r.vbs), false);
-  if (out.size() > limit) {
-    r = Result{E_TOOBIG, 0, echo(d.req)};
-    out = this->v3_message(msg_id, level, name, u, pdu_bytes(P_RESPONSE, d.reqid, r.err, r.idx, r.vbs), false);
-  }
-  return !out.empty();
+  if (out.size() > limit)  // tooBig with no varbinds (RFC 3416 4.2.1), dropped if even that does not fit
+    out = this->v3_message(msg_id, level, name, u, pdu_bytes(P_RESPONSE, d.reqid, E_TOOBIG, 0, {}), false);
+  return !out.empty() && out.size() <= limit;
 }
 
 // ---- Notifications ----

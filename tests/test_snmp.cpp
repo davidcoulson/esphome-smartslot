@@ -98,13 +98,14 @@ static Resp parse_v3(const Bytes &b, Bytes *engine = nullptr) {
   assert(ber_read(&p, end, &t, &c, &cl) && t == 4);
   return parse_pdu(p, end);
 }
-static Bytes get_pdu(const char *oid) {
-  Bytes vb = ber_oid(O(oid));
+static Bytes get_pdu(const char *oid, size_t copies = 1) {
+  Bytes vb = ber_oid(O(oid)), vbs;
   cat(vb, Bytes{0x05, 0x00});
+  for (size_t i = 0; i < copies; i++) cat(vbs, ber_tlv(0x30, vb));
   Bytes pd = ber_int(2, 42);
   cat(pd, ber_int(2, 0));
   cat(pd, ber_int(2, 0));
-  cat(pd, ber_tlv(0x30, ber_tlv(0x30, vb)));
+  cat(pd, ber_tlv(0x30, vbs));
   return ber_tlv(0xA0, pd);
 }
 static std::string hex(const Bytes &b) {
@@ -300,6 +301,35 @@ int main() {
     Bytes mm = q;
     mm[rand() % mm.size()] = rand();
     a->handle(mm.data(), mm.size(), out);
+  }
+  // a response over the manager's msgMaxSize (484) becomes tooBig with no varbinds, and still fits
+  q = m.v3_message(9, 0, "noauth", nullptr, get_pdu("1.3.6.1.2.1.1.1.0", 30), true);
+  for (size_t i = 0; i + 4 <= q.size(); i++)
+    if (q[i] == 2 && q[i + 1] == 2 && q[i + 2] == 0x05 && q[i + 3] == 0xDC) {  // msgMaxSize 1500 -> 484
+      q[i + 2] = 0x01, q[i + 3] = 0xE4;
+      break;
+    }
+  assert(a->handle(q.data(), q.size(), out) && out.size() <= 484);
+  r = parse_v3(out);
+  assert(r.tag == 0xA2 && r.err == 1 && r.idx == 0 && r.vbs.empty());
+  // v2c tooBig also has no varbinds
+  {
+    a->set(a->add(O("1.3.6.1.2.1.1.9.0"), STRING), std::string(100, 'x'));
+    std::vector<const char *> many(60, "1.3.6.1.2.1.1.9.0");
+    Resp big = ask(*a, request(1, "public", 0xA0, 0, 0, many));
+    assert(big.err == 1 && big.vbs.empty());
+  }
+  // at the latched maximum boot count nothing authenticated is accepted
+  {
+    Agent hi, mh;
+    hi.set_engine(eid, 2147483647u, 0);
+    mh.set_engine(eid, 2147483647u, 0);
+    hi.add_user("auth", AUTH_SHA256, "authpass123", PRIV_NONE, "");
+    mh.add_user("auth", AUTH_SHA256, "authpass123", PRIV_NONE, "");
+    Bytes rq = mh.v3_message(10, 1, "auth", mh.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true), o;
+    assert(hi.handle(rq.data(), rq.size(), o));
+    Resp rp = parse_v3(o);
+    assert(rp.tag == 0xA8 && (rp.vbs[0].first == Oid{1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0}));
   }
   // v2c: false drops v1 and v2c
   a->v2c = false;

@@ -74,10 +74,12 @@ void SnmpAgent::setup_engine_() {
   // snmpEngineBoots must go up on every restart (RFC 3414 2.2.2), so it lives in flash; one write per boot.
   ESPPreferenceObject pref = global_preferences->make_preference<uint32_t>(fnv1_hash("snmp_engine_boots"), true);
   uint32_t boots = 0;
-  pref.load(&boots);
+  pref.load(&boots);  // shortcut: a missing value counts as the first boot; lost flash state looks the same
   boots = boots >= 2147483646u ? 2147483647u : boots + 1;  // latches at the maximum (RFC 3414 2.2.2)
-  pref.save(&boots);
-  global_preferences->sync();
+  // If the new count is not in flash, a later restart could reuse it and accept replayed requests: serve only
+  // users without authentication (RFC 3414 2.2.2 fails closed when the boot count is unknown).
+  bool durable = pref.save(&boots) && global_preferences->sync();
+  if (!durable) ESP_LOGE(TAG, "engine boots not saved to flash: authenticated SNMPv3 users are disabled");
   snmp::Bytes eid;
   for (size_t i = 0; i + 1 < this->engine_hex_.size(); i += 2)
     eid.push_back((uint8_t) strtoul(this->engine_hex_.substr(i, 2).c_str(), nullptr, 16));
@@ -90,6 +92,7 @@ void SnmpAgent::setup_engine_() {
   }
   this->agent_.set_engine(eid, boots, ((uint64_t) random_uint32() << 32) | random_uint32());
   for (auto &u : this->users_) {
+    if (!durable && u.auth != snmp::AUTH_NONE) continue;
     if (!this->agent_.add_user(u.name, (snmp::Auth) u.auth, u.auth_pw, (snmp::Priv) u.priv, u.priv_pw))
       ESP_LOGE(TAG, "SNMPv3 user %s: key setup failed", u.name.c_str());
     u.auth_pw.clear();
