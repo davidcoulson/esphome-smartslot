@@ -181,6 +181,11 @@ text_sensor:
     name: UPS status
     web_server: { sorting_group_id: grp_status }
   - platform: smartslot
+    id: ups_alarm
+    variable: ups.alarm
+    name: UPS alarm
+    web_server: { sorting_group_id: grp_status }
+  - platform: smartslot
     id: ups_model
     variable: ups.model
     name: UPS model

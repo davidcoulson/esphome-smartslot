@@ -55,7 +55,9 @@ button:
 
 `variable` is any NUT variable name (`upsc ups@card` lists them); `command` is any NUT instant command
 (`upscmd -l`). Entities stop publishing while the UPS is unreachable or data is stale, and the component reports a
-warning status (drive a `status_led:` from it). Reads on port 3493 need no login; `INSTCMD`, `SET VAR` and `LOGIN`
+warning status (drive a `status_led:` from it). A variable the UPS stops reporting while it is reachable becomes
+unknown: `ups.alarm` (e.g. "Battery system - Disconnected") is empty when there is no alarm, and `battery.charge` and
+`battery.runtime` are unknown while the battery is disconnected. Reads on port 3493 need no login; `INSTCMD`, `SET VAR` and `LOGIN`
 need the configured user. There is no TLS, Wi-Fi or mDNS in the component; SNMP is the separate `snmp_agent` component
 below and the web UI is described under "Web interface".
 
