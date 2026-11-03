@@ -2,6 +2,7 @@
 /* Serial code shared by the target and host back ends: failure accounting and the Microlink probe. */
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "nutshim.h"
 #include "serial.h"
@@ -27,11 +28,11 @@ void ser_comm_good(void) {
     consecutive_fails = 0;
 }
 
-/* A page-0 frame as apcmicrolink.c parses one: object 0x00, width at [2], width + 3 bytes, Fletcher-style checksum
- * in the last two. Only this passes, so a line stuck low (a run of 0x00) or noise never reaches the driver's
+/* A page-0 frame as apcmicrolink.c parses one: object 0x00, width at [2] (at least 3, or the driver cannot fill
+ * page 0), width + 3 bytes, Fletcher-style checksum in the last two. Only this passes, so a line stuck low (a run of 0x00) or noise never reaches the driver's
  * handshake, whose failure is fatalx() and a reboot. */
 static bool microlink_page0_at(const uint8_t *b, size_t n) {
-    if (n < 3 || b[0] != 0x00) return false;
+    if (n < 3 || b[0] != 0x00 || b[2] < 3) return false;
     size_t len = (size_t) b[2] + 3;
     if (len > n) return false;
     unsigned c0 = 0, c1 = 0;
@@ -45,7 +46,7 @@ static bool microlink_page0_at(const uint8_t *b, size_t n) {
 
 bool microlink_probe(void) {
     static const uint8_t init = 0xFD;
-    uint8_t buf[300]; /* one 258-byte maximum frame plus some leading noise */
+    uint8_t buf[258]; /* one maximum frame; older bytes slide out so leading noise never ends the probe early */
     size_t got = 0;
     bool found = false;
     TYPE_FD fd = ser_open("probe");
@@ -53,9 +54,10 @@ bool microlink_probe(void) {
     ser_set_speed(fd, "probe", B9600);
     ser_send_buf(fd, &init, 1);
     uint64_t end = os_now_ms() + microlink_probe_ms;
-    while (!found && got < sizeof buf && os_now_ms() < end) {
+    while (!found && os_now_ms() < end) {
         uint8_t c;
         if (ser_get_char(fd, &c, 0, 100000) != 1) continue;
+        if (got == sizeof buf) memmove(buf, buf + 1, --got);
         buf[got++] = c;
         for (size_t i = 0; i < got && !found; i++) found = microlink_page0_at(buf + i, got - i);
     }

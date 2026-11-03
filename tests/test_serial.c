@@ -35,6 +35,11 @@ void test_microlink_probe_cases(void) {
     bad_sum[18] ^= 1;
     static const uint8_t zeros[32] = {0}; /* line stuck low: every byte reads 0x00 */
     static const uint8_t old_ok[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    static const uint8_t width1[4] = {0x00, 0x7f, 0x01, 0x7f}; /* checksum-valid, too short to carry page 0 */
+    static const uint8_t width2[5] = {0x00, 0x7f, 0x02, 0x7d, 0x01};
+    uint8_t long_noise[300 + sizeof smt750];
+    memset(long_noise, 0x13, 300);
+    memcpy(long_noise + 300, smt750, sizeof smt750);
     probe_with(smt750, sizeof smt750, true);
     serial_host_reset();
     probe_with(noisy, sizeof noisy, true);
@@ -46,6 +51,12 @@ void test_microlink_probe_cases(void) {
     probe_with(zeros, sizeof zeros, false);
     serial_host_reset();
     probe_with(old_ok, sizeof old_ok, false);
+    serial_host_reset();
+    probe_with(width1, sizeof width1, false);
+    serial_host_reset();
+    probe_with(width2, sizeof width2, false);
+    serial_host_reset();
+    probe_with(long_noise, sizeof long_noise, true); /* more noise than the buffer holds */
     serial_host_reset();
     probe_with(NULL, 0, false); /* nobody answers */
 }
