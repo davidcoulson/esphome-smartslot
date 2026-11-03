@@ -109,7 +109,7 @@ are not reported while the link is down; the difference is reported once it is b
 authoritative engine, so the receiver needs the card's engine ID, e.g. in `snmptrapd.conf`:
 
 ```
-createUser -e 0x8000013e03<mac> monitor SHA-256 <auth password> AES <priv password>
+createUser -e 0x<engine ID from dump_config, 8000013e05...> monitor SHA-256 <auth password> AES <priv password>
 ```
 
 Not supported: SNMPv1 traps, informs, SET (answered with readOnly/noAccess), and PowerChute Network Shutdown

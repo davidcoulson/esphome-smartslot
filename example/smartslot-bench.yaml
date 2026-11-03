@@ -71,6 +71,7 @@ mqtt:
   username: !secret mqtt_username
   password: !secret mqtt_password
   discovery: false
+  reboot_timeout: 0s           # a broker outage must not restart the card
 web_server:
   version: 3
   local: true                  # UI assets served from flash; no internet needed
@@ -261,7 +262,7 @@ snmp_agent:
   port: 161
   community: public          # v1/v2c, read-only; set v2c: false to serve SNMPv3 only
   # SNMPv3 (USM). Auth md5|sha|sha224|sha256|sha384|sha512, priv aes (AES-128); passwords at least 8 characters.
-  # Each user is served at exactly its configured level. The engine ID (default 80:00:01:3e:03 + MAC) is in the log.
+  # Each user is served at exactly its configured level. The engine ID (80:00:01:3e:05 + MAC + salt) is in the log.
   users:
     - name: monitor
       auth_protocol: sha256
