@@ -131,7 +131,7 @@ static const char *model(char *buf, size_t n) {
 }
 
 static int list_streamed(nutproto_session *s, const char *what, bool rw_only) {
-    if (!dstate_is_dataok()) return reply(s, "ERR DATA-STALE\n");
+    if (!dstate_is_servable()) return reply(s, "ERR DATA-STALE\n");
     struct outbuf o = {0};
     o.rw_only = rw_only;
     dstate_foreach(list_var_cb, &o); /* format under the lock, send after releasing it */
@@ -204,7 +204,7 @@ static int handle_get(nutproto_session *s, int argc, char **argv) {
         return reply(s, "CMDDESC %s %s \"Description unavailable\"\n", UPS_NAME, name);
     }
     if (strcasecmp(what, "VAR") == 0) {
-        if (!dstate_is_dataok()) return reply(s, "ERR DATA-STALE\n");
+        if (!dstate_is_servable()) return reply(s, "ERR DATA-STALE\n");
         char val[256], line[LINE_MAX_OUT];
         if (!dstate_copyinfo(name, val, sizeof val)) return reply(s, "ERR VAR-NOT-SUPPORTED\n");
         char fsd[300];
@@ -231,7 +231,7 @@ static int handle_instcmd(nutproto_session *s, int argc, char **argv) {
     if (argc < 3 || argc > 4) return reply(s, "ERR INVALID-ARGUMENT\n");
     if (strcmp(argv[1], UPS_NAME) != 0) return reply(s, "ERR UNKNOWN-UPS\n");
     if (!authorized(s)) return reply(s, "ERR ACCESS-DENIED\n");
-    if (!dstate_is_dataok()) return reply(s, "ERR DATA-STALE\n");
+    if (!dstate_is_servable()) return reply(s, "ERR DATA-STALE\n");
     switch (s->h->instcmd(argv[2], argc == 4 ? argv[3] : NULL)) {
         case STAT_INSTCMD_HANDLED: return reply(s, "OK\n");
         case STAT_INSTCMD_UNKNOWN: return reply(s, "ERR CMD-NOT-SUPPORTED\n");
@@ -245,7 +245,7 @@ static int handle_set(nutproto_session *s, int argc, char **argv) {
     if (argc != 5 || strcasecmp(argv[1], "VAR") != 0) return reply(s, "ERR INVALID-ARGUMENT\n");
     if (strcmp(argv[2], UPS_NAME) != 0) return reply(s, "ERR UNKNOWN-UPS\n");
     if (!authorized(s)) return reply(s, "ERR ACCESS-DENIED\n");
-    if (!dstate_is_dataok()) return reply(s, "ERR DATA-STALE\n");
+    if (!dstate_is_servable()) return reply(s, "ERR DATA-STALE\n");
     switch (s->h->setvar(argv[3], argv[4])) {
         case STAT_SET_HANDLED: return reply(s, "OK\n");
         case STAT_SET_UNKNOWN: return reply(s, "ERR VAR-NOT-SUPPORTED\n");

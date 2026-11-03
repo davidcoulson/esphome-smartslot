@@ -8,6 +8,7 @@ volatile bool fake_stale;
 pthread_t fake_instcmd_thread;
 int fake_instcmd_calls;
 int fake_cleanup_calls;
+int fake_empty_status_polls; /* polls that publish an empty status after initinfo, like a slow Microlink startup */
 char fake_device_path[32];
 
 static int fake_instcmd(const char *cmd, const char *extra) {
@@ -22,12 +23,13 @@ static int fake_setvar(const char *var, const char *val) { (void) var; (void) va
 void upsdrv_makevartable(void) {}
 void upsdrv_initups(void) { snprintf(fake_device_path, sizeof fake_device_path, "%s", device_path); }
 void upsdrv_initinfo(void) {
-    dstate_setinfo("ups.status", "OL");
+    dstate_setinfo("ups.status", "%s", fake_empty_status_polls ? "" : "OL");
     dstate_addcmd("beeper.toggle");
     upsh.instcmd = fake_instcmd;
     upsh.setvar = fake_setvar;
 }
 void upsdrv_updateinfo(void) {
+    if (fake_empty_status_polls && --fake_empty_status_polls == 0) dstate_setinfo("ups.status", "OL");
     if (fake_stale) dstate_datastale(); else dstate_dataok();
 }
 void upsdrv_cleanup(void) { fake_cleanup_calls++; }

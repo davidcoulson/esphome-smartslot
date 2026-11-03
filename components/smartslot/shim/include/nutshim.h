@@ -16,6 +16,10 @@ extern "C" {
 /* Creates the dstate mutex; idempotent. */
 void nutshim_init(void);
 bool dstate_is_dataok(void);
+/* dataok, and not an empty ups.status: a new session's first polls publish an empty status and zeroed numbers before
+ * the UPS has sent them. Gates what upsd and ESPHome serve; the driver's stale-poll count uses dstate_is_dataok(), so a
+ * slow startup is not torn down. */
+bool dstate_is_servable(void);
 
 /* Both walks hold the dstate mutex; callbacks must not block and must not call dstate_set*. Insertion order. */
 typedef void (*dstate_var_fn)(const char *name, const char *value, int flags, long aux, void *ctx);

@@ -47,6 +47,16 @@ void test_dataok_datastale(void) {
     TEST_ASSERT_TRUE(dstate_is_dataok());
     dstate_datastale();
     TEST_ASSERT_FALSE(dstate_is_dataok());
+    TEST_ASSERT_FALSE(dstate_is_servable());
+    dstate_dataok();
+    TEST_ASSERT_TRUE(dstate_is_servable()); /* no ups.status at all (the protocol tests' fixtures) */
+    status_init(); /* a new session's first poll: the UPS has not sent its status yet */
+    status_commit();
+    TEST_ASSERT_TRUE(dstate_is_dataok());
+    TEST_ASSERT_FALSE(dstate_is_servable());
+    status_set("OL");
+    status_commit();
+    TEST_ASSERT_TRUE(dstate_is_servable());
 }
 
 static void collect_var(const char *name, const char *value, int flags, long aux, void *ctx) {

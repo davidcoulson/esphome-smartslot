@@ -175,6 +175,10 @@ void dstate_foreach_cmd(dstate_cmd_fn fn, void *ctx) {
 void dstate_dataok(void) { dataok = true; }
 void dstate_datastale(void) { dataok = false; }
 bool dstate_is_dataok(void) { return dataok; }
+bool dstate_is_servable(void) {
+    char st[2] = "";
+    return dataok && (!dstate_copyinfo("ups.status", st, sizeof st) || st[0]);
+}
 
 static void append(char *buf, const char *s) {
     size_t l = strlen(buf);

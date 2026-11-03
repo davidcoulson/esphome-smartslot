@@ -10,6 +10,7 @@ extern volatile bool fake_stale;
 extern pthread_t fake_instcmd_thread;
 extern int fake_instcmd_calls;
 extern int fake_cleanup_calls;
+extern int fake_empty_status_polls;
 extern char fake_device_path[32];
 
 static const nutdrv_config cfg = {"smartslot1", 9600, -1, 0};
@@ -98,5 +99,20 @@ void test_nutdrv_five_stale_polls_return_to_no_ups(void) {
     TEST_ASSERT_EQUAL(NUTDRV_RUNNING, nutdrv_state());
     os_sleep_ms(100);
     TEST_ASSERT_EQUAL(0, fake_instcmd_calls); /* ...and nothing accepted before the session ended runs on the new one */
+    nutdrv_stop();
+}
+
+void test_nutdrv_slow_status_is_stale_but_not_reprobed(void) {
+    fake_empty_status_polls = 8; /* more polls than the five stale ones that force a re-probe */
+    reply_ok();
+    begin();
+    wait_state(NUTDRV_RUNNING, 3000);
+    char buf[8];
+    TEST_ASSERT_FALSE(dstate_is_servable());
+    TEST_ASSERT_FALSE(nutshim_value_for_publish("ups.status", buf, sizeof buf));
+    for (int t = 0; t < 2000 && !dstate_is_servable(); t++) os_sleep_ms(1);
+    TEST_ASSERT_TRUE(dstate_is_servable());
+    TEST_ASSERT_EQUAL(NUTDRV_RUNNING, nutdrv_state());
+    TEST_ASSERT_EQUAL(0, fake_cleanup_calls); /* the session was never torn down */
     nutdrv_stop();
 }

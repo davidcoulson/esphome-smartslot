@@ -4,7 +4,8 @@
 #include "serial_host.h"
 #include "unity.h"
 
-void setUp(void) { nutshim_reset_for_test(); serial_host_reset(); }
+extern int fake_empty_status_polls;
+void setUp(void) { nutshim_reset_for_test(); serial_host_reset(); fake_empty_status_polls = 0; }
 void tearDown(void) { nutdrv_stop(); } /* a failed test must not leave the driver task running */
 
 void test_setinfo_getinfo_roundtrip(void);
@@ -43,6 +44,7 @@ void test_nutdrv_waits_for_probe_then_runs(void);
 void test_nutdrv_instcmd_runs_on_driver_task(void);
 void test_nutdrv_detached_request_returns_before_the_driver_runs_it(void);
 void test_nutdrv_five_stale_polls_return_to_no_ups(void);
+void test_nutdrv_slow_status_is_stale_but_not_reprobed(void);
 
 void test_publish_only_when_running_fresh_and_present(void);
 
@@ -85,6 +87,7 @@ int main(void) {
     RUN_TEST(test_nutdrv_instcmd_runs_on_driver_task);
     RUN_TEST(test_nutdrv_detached_request_returns_before_the_driver_runs_it);
     RUN_TEST(test_nutdrv_five_stale_polls_return_to_no_ups);
+    RUN_TEST(test_nutdrv_slow_status_is_stale_but_not_reprobed);
     RUN_TEST(test_publish_only_when_running_fresh_and_present);
     RUN_TEST(test_timegm_matches_libc);
     RUN_TEST(test_proto_primary_and_fsd);
