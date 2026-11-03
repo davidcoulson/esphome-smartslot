@@ -22,7 +22,6 @@ CONF_TEXT_SENSOR = "text_sensor"
 CONF_SCALE = "scale"
 CONF_MAP = "map"
 CONF_V2C = "v2c"
-CONF_ENGINE_ID = "engine_id"
 CONF_USERS = "users"
 CONF_AUTH_PROTOCOL = "auth_protocol"
 CONF_AUTH_PASSWORD = "auth_password"
@@ -47,13 +46,6 @@ def valid_oid(value):
     value = cv.string_strict(value).lstrip(".")
     if not re.fullmatch(r"\d+(\.\d+)+", value):
         raise cv.Invalid(f"'{value}' is not a dotted OID such as 1.3.6.1.2.1.1.5.0")
-    return value
-
-
-def valid_engine_id(value):
-    value = cv.string_strict(value).replace(":", "").lower()
-    if not re.fullmatch(r"([0-9a-f]{2}){5,32}", value):
-        raise cv.Invalid("engine_id must be 5 to 32 bytes of hex, such as 80:00:01:3e:03:...")
     return value
 
 
@@ -145,7 +137,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SYS_LOCATION, default=""): cv.string,
             cv.Optional(CONF_READINGS, default=[]): cv.ensure_list(READING_SCHEMA),
             cv.Optional(CONF_V2C, default=True): cv.boolean,  # also covers v1
-            cv.Optional(CONF_ENGINE_ID): valid_engine_id,  # default 80:00:01:3e:03 + MAC
             cv.Optional(CONF_USERS, default=[]): cv.ensure_list(USER_SCHEMA),
             cv.Optional(CONF_TRAPS): TRAPS_SCHEMA,
         }
@@ -181,8 +172,6 @@ async def to_code(config):
         else:
             cg.add(var.add_static(r[CONF_OID], r[CONF_VALUE], t))
     cg.add(var.set_v2c(config[CONF_V2C]))
-    if CONF_ENGINE_ID in config:
-        cg.add(var.set_engine_id(config[CONF_ENGINE_ID]))
     for u in config[CONF_USERS]:
         cg.add(
             var.add_user(

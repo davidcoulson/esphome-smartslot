@@ -50,6 +50,17 @@ struct User {
 // RFC 3414 A.2: password to key, then localized to the engine ID. Empty on failure.
 Bytes localize_key(Auth a, const std::string &password, const Bytes &engine_id);
 
+// Persisted engine state. snmpEngineBoots must go up on every restart (RFC 3414 2.2.2); the salt is part of the
+// engine ID, so lost or unreadable state (loaded false) gives a new engine ID and new localized keys, and messages
+// captured under the old boot count no longer authenticate. Latches at the maximum boot count.
+struct EngineState {
+  uint32_t salt;
+  uint32_t boots;
+};
+void next_engine_state(EngineState &st, bool loaded, uint32_t fresh_salt);
+// RFC 3411 SnmpEngineID format 5: enterprise 318 (APC) with the high bit set, then the MAC address and the salt.
+Bytes engine_id_from(const uint8_t mac[6], uint32_t salt);
+
 // PowerNet-MIB traps (ENTERPRISE apc, sent as 1.3.6.1.4.1.318.0.<id>) implied by a ups.status change.
 struct TrapEvent {
   uint32_t id;

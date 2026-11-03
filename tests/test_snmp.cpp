@@ -331,6 +331,26 @@ int main() {
     Resp rp = parse_v3(o);
     assert(rp.tag == 0xA8 && (rp.vbs[0].first == Oid{1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0}));
   }
+  // engine state: lost or unreadable state gets a new salt (so a new engine ID and keys); boots go up and latch
+  {
+    EngineState st{0x1234, 7};
+    next_engine_state(st, true, 0x9999);
+    assert(st.salt == 0x1234 && st.boots == 8);
+    next_engine_state(st, false, 0x9998);  // load failed: whatever st holds is ignored
+    assert(st.salt == 0x9999 && st.boots == 1);
+    st = {0, 50};
+    next_engine_state(st, true, 0);  // a loaded zero salt counts as missing, and the fresh salt is never 0
+    assert(st.salt == 1 && st.boots == 1);
+    st = {5, 2147483646u};
+    next_engine_state(st, true, 0);
+    assert(st.boots == 2147483647u);
+    next_engine_state(st, true, 0);
+    assert(st.boots == 2147483647u);
+    const uint8_t mac[6] = {1, 2, 3, 4, 5, 6};
+    Bytes e1 = engine_id_from(mac, 0xA1B2C3D4), e2 = engine_id_from(mac, 0xA1B2C3D5);
+    assert((e1 == Bytes{0x80, 0, 1, 0x3e, 5, 1, 2, 3, 4, 5, 6, 0xA1, 0xB2, 0xC3, 0xD4}));
+    assert(localize_key(AUTH_SHA256, "authpass123", e1) != localize_key(AUTH_SHA256, "authpass123", e2));
+  }
   // v2c: false drops v1 and v2c
   a->v2c = false;
   q = request(1, "public", 0xA0, 0, 0, {"1.3.6.1.2.1.1.1.0"});

@@ -31,7 +31,6 @@ class SnmpAgent : public PollingComponent {
   }
   void add_static(const std::string &oid, const std::string &value, int type);
   void set_v2c(bool v) { this->agent_.v2c = v; }
-  void set_engine_id(const std::string &hex) { this->engine_hex_ = hex; }
   void add_user(const std::string &name, int auth, const std::string &auth_pw, int priv, const std::string &priv_pw) {
     this->users_.push_back({name, auth, auth_pw, priv, priv_pw});
   }
@@ -76,7 +75,6 @@ class SnmpAgent : public PollingComponent {
   std::string name_;
   snmp::Entry *uptime_{nullptr};
   std::vector<Reading> readings_;
-  std::string engine_hex_;
   std::vector<UserConf> users_;  // keys are derived in setup(), once the engine ID is known
   text_sensor::TextSensor *status_{nullptr};
   binary_sensor::BinarySensor *link_{nullptr};

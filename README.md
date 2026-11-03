@@ -86,9 +86,10 @@ Served by default (the example table):
 `sha384`, `sha512`; the SHA-2 ones per RFC 7860), `auth_password`, `priv_protocol` (`none` or `aes`, AES-128-CFB per
 RFC 3826) and `priv_password`. Passwords must be at least 8 characters, and privacy needs authentication. There is no
 VACM: each user sees the whole table, at exactly its configured level (a request at another level gets an
-unsupportedSecLevels report). `v2c: false` turns v1/v2c off. `engine_id` overrides the default engine ID,
-`80:00:01:3e:03` followed by the MAC address; `dump_config` logs it with the boot count, which is kept in flash and
-goes up on every restart. Not supported: DES and AES-192/256 privacy, contexts other than the default one, and
+unsupportedSecLevels report). `v2c: false` turns v1/v2c off. The engine ID is `80:00:01:3e:05`, the MAC address and a
+random salt; `dump_config` logs it with the boot count. Both are kept in flash, and the boot count goes up on every
+restart. If that state is lost (a flash erase) the card picks a new salt, so trap receivers that were given the
+engine ID need the new one. Not supported: DES and AES-192/256 privacy, contexts other than the default one, and
 informs.
 
 ```bash

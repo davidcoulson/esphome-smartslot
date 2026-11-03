@@ -421,6 +421,18 @@ Bytes localize_key(Auth a, const std::string &password, const Bytes &engine_id) 
   return kul;
 }
 
+void next_engine_state(EngineState &st, bool loaded, uint32_t fresh_salt) {
+  if (!loaded || st.salt == 0) st = {fresh_salt | 1, 0};
+  st.boots = st.boots >= 2147483646u ? 2147483647u : st.boots + 1;
+}
+
+Bytes engine_id_from(const uint8_t mac[6], uint32_t salt) {
+  Bytes eid = {0x80, 0x00, 0x01, 0x3e, 0x05};
+  eid.insert(eid.end(), mac, mac + 6);
+  for (int s = 24; s >= 0; s -= 8) eid.push_back((uint8_t) (salt >> s));
+  return eid;
+}
+
 void Agent::set_engine(const Bytes &engine_id, uint32_t boots, uint64_t salt_seed) {
   engine_id_ = engine_id;
   boots_ = boots;
