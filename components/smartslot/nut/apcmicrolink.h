@@ -38,6 +38,7 @@ static inline time_t microlink_now(void)
 #define MLINK_DESC_AUTH_STATUS     "2:4.8.9"
 #define MLINK_DESC_SERIALNUMBER    "2:4.9.40"
 #define MLINK_DESC_TEST_SCHEDULE   "2:4.5.18"
+#define MLINK_DESC_BATTERY_SYSTEM_ERROR "2:4.34"
 
 /* Members of battery_test_interval_map that imply a recurring self test, by
  * period. The other two ("Never", "OnStartUpOnly") imply none. */

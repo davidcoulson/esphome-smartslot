@@ -90,7 +90,7 @@ const char *dstate_getinfo(const char *name) {
     return v ? v->value : NULL;
 }
 
-static void delinfo(const char *name) {
+int dstate_delinfo(const char *name) {
     nutshim_init();
     os_mutex_lock(lock);
     struct var *v = find(name);
@@ -99,6 +99,7 @@ static void delinfo(const char *name) {
         nvars--;
     }
     os_mutex_unlock(lock);
+    return v != NULL;
 }
 
 bool dstate_copyinfo(const char *name, char *buf, size_t len) {
@@ -188,10 +189,11 @@ static void append(char *buf, const char *s) {
 
 void status_init(void) { status_buf[0] = 0; }
 void status_set(const char *s) { append(status_buf, s); }
-void status_commit(void) { dstate_setinfo("ups.status", "%s", status_buf); }
+/* As NUT does, an active alarm adds ALARM to ups.status. */
+void status_commit(void) { dstate_setinfo("ups.status", "%s%s%s", alarm_buf[0] ? "ALARM" : "", alarm_buf[0] && status_buf[0] ? " " : "", status_buf); }
 void alarm_init(void) { alarm_buf[0] = 0; }
 void alarm_set(const char *s) { append(alarm_buf, s); }
 void alarm_commit(void) {
     if (alarm_buf[0]) dstate_setinfo("ups.alarm", "%s", alarm_buf);
-    else delinfo("ups.alarm");
+    else dstate_delinfo("ups.alarm");
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "smartslot.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -55,16 +56,25 @@ bool SmartSlot::online() const { return nutdrv_state() == NUTDRV_RUNNING && dsta
 
 void SmartSlot::update() {
   char buf[256];
+  bool on = this->online();
+  // While the UPS is talking, a variable it stopped reporting (ups.alarm cleared, charge with the battery
+  // disconnected) becomes unknown; while it is not, sensors keep their last value.
   for (auto &p : this->sensors_) {
-    if (!nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf)) continue;
+    if (!nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf)) {
+      if (on && !std::isnan(p.first->state)) p.first->publish_state(NAN);
+      continue;
+    }
     char *end;
     float v = strtof(buf, &end);
     if (end != buf) p.first->publish_state(v);
   }
-  for (auto &p : this->text_sensors_)
-    if (nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf)) p.first->publish_state(buf);
+  for (auto &p : this->text_sensors_) {
+    if (nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf))
+      p.first->publish_state(buf);
+    else if (on && !p.first->state.empty())
+      p.first->publish_state("");
+  }
   // Logged so that syslog carries UPS events.
-  bool on = this->online();
   if (on != this->online_) ESP_LOGI(TAG, "UPS communication %s", on ? "established" : "lost");
   this->online_ = on;
   if (on && nutshim_value_for_publish("ups.status", buf, sizeof buf) && this->last_status_ != buf) {

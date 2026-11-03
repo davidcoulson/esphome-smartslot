@@ -11,6 +11,7 @@ void tearDown(void) { nutdrv_stop(); } /* a failed test must not leave the drive
 void test_setinfo_getinfo_roundtrip(void);
 void test_flags_and_aux(void);
 void test_status_and_alarm_builders(void);
+void test_delinfo(void);
 void test_dataok_datastale(void);
 void test_foreach_order_and_cmds(void);
 void test_long_values_truncate_not_overflow(void);
@@ -57,6 +58,7 @@ int main(void) {
     RUN_TEST(test_setinfo_getinfo_roundtrip);
     RUN_TEST(test_flags_and_aux);
     RUN_TEST(test_status_and_alarm_builders);
+    RUN_TEST(test_delinfo);
     RUN_TEST(test_dataok_datastale);
     RUN_TEST(test_foreach_order_and_cmds);
     RUN_TEST(test_long_values_truncate_not_overflow);

@@ -46,8 +46,19 @@ static const microlink_value_map_t microlink_calibration_ups_status_map[] = {
 	{ 0, NULL }
 };
 
+/* BatterySystemError (2:4.34). Bit 0 matches apc_modbus.c's "Disconnected"
+ * and was confirmed on two SMT750s (MBL 18.0 and 19.0): one with its battery
+ * unplugged, one with no battery fitted.
+ * shortcut: apc_modbus also maps bits 1-7 (Over voltage, Needs replacement,
+ * ...); add them once a Microlink unit is seen reporting them. */
+static const microlink_value_map_t microlink_battery_system_error_map[] = {
+	{ (1U << 0), "Battery system - Disconnected" },
+	{ 0, NULL }
+};
+
 const microlink_desc_publish_map_t microlink_desc_publish_map[] = {
 	{ "2:4.A", apc_status_map, apc_alarm_map },
+	{ MLINK_DESC_BATTERY_SYSTEM_ERROR, NULL, microlink_battery_system_error_map },
 	{ "2:13", microlink_calibration_ups_status_map, NULL },
 	/* Same register in the UPS-scope namespace: devices that populate this
 	 * one instead must reach ups.status too, as with the test-result pair. */

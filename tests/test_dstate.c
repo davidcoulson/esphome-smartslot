@@ -39,6 +39,23 @@ void test_status_and_alarm_builders(void) {
     TEST_ASSERT_EQUAL_STRING("Replace battery!", dstate_getinfo("ups.alarm"));
     alarm_init(); alarm_commit();
     TEST_ASSERT_NULL(dstate_getinfo("ups.alarm"));
+    /* an active alarm adds ALARM to ups.status, as in NUT */
+    status_init(); alarm_init(); status_set("OL"); alarm_set("Battery system - Disconnected"); status_commit(); alarm_commit();
+    TEST_ASSERT_EQUAL_STRING("ALARM OL", dstate_getinfo("ups.status"));
+    status_init(); alarm_init(); status_commit(); alarm_commit();
+    TEST_ASSERT_EQUAL_STRING("", dstate_getinfo("ups.status"));
+    status_init(); alarm_init(); status_set("OL"); status_commit(); alarm_commit();
+    TEST_ASSERT_EQUAL_STRING("OL", dstate_getinfo("ups.status"));
+    TEST_ASSERT_NULL(dstate_getinfo("ups.alarm"));
+}
+
+void test_delinfo(void) {
+    dstate_setinfo("battery.charge", "100");
+    dstate_setinfo("battery.runtime", "16200");
+    TEST_ASSERT_EQUAL(1, dstate_delinfo("battery.charge"));
+    TEST_ASSERT_NULL(dstate_getinfo("battery.charge"));
+    TEST_ASSERT_EQUAL_STRING("16200", dstate_getinfo("battery.runtime"));
+    TEST_ASSERT_EQUAL(0, dstate_delinfo("battery.charge"));
 }
 
 void test_dataok_datastale(void) {

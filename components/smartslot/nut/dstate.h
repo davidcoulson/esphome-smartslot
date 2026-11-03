@@ -14,6 +14,7 @@ static inline double difftime_st_tree_timespec(st_tree_timespec_t a, st_tree_tim
 }
 const char *dstate_setinfo(const char *var, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 const char *dstate_getinfo(const char *var);
+int dstate_delinfo(const char *var);
 void dstate_addcmd(const char *cmdname);
 int dstate_setflags(const char *var, int flags);
 int dstate_setaux(const char *var, long aux);

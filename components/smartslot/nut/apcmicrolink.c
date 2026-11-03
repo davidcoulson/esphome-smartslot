@@ -2435,10 +2435,17 @@ static int microlink_descriptor_value_is_printable(const unsigned char *buf, siz
 static void microlink_publish_descriptor_exports(void)
 {
 	size_t i;
+	uint32_t battery_error = 0;
+	int battery_disconnected;
 
 	if (!descriptor_ready) {
 		return;
 	}
+
+	/* With the battery disconnected the UPS still reports a full charge and
+	 * hours of runtime; publish neither rather than numbers that are false. */
+	battery_disconnected = microlink_get_descriptor_map_bits(
+		MLINK_DESC_BATTERY_SYSTEM_ERROR, &battery_error) && (battery_error & 1U);
 
 	for (i = 0; i < descriptor_usage_count; i++) {
 		char name[128];
@@ -2480,6 +2487,11 @@ static void microlink_publish_descriptor_exports(void)
 			mapped = 1;
 			microlink_format_name_template(entry->upsd_name, index, entry->name_index,
 				name, sizeof(name));
+			if (battery_disconnected
+			 && (!strcmp(name, "battery.charge") || !strcmp(name, "battery.runtime"))) {
+				dstate_delinfo(name);
+				continue;
+			}
 			microlink_publish_descriptor_entry(name, usage->path, entry);
 
 			if (entry->access & MLINK_DESC_RW) {
