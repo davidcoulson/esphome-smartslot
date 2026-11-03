@@ -29,7 +29,6 @@ void ser_comm_good(void) {
 
 bool microlink_probe(void) {
     static const uint8_t init = 0xFD;
-    uint8_t first = 0;
     size_t got = 0;
     TYPE_FD fd = ser_open("probe");
     if (!VALID_FD(fd)) return false;
@@ -39,12 +38,8 @@ bool microlink_probe(void) {
     while (os_now_ms() < end) {
         uint8_t c;
         if (ser_get_char(fd, &c, 0, 100000) != 1) continue;
-        if (got++ == 0) {
-            first = c;
-            if (first == 0x00) break; /* APC returns 0x00 when it is not speaking Microlink */
-        }
-        if (got >= 8) break;
+        if (++got >= 8) break; /* any first byte: an SMT750's frame starts with 0x00 */
     }
     ser_close(fd, "probe");
-    return got >= 8 && first != 0x00;
+    return got >= 8;
 }

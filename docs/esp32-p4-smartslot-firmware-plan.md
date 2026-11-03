@@ -17,7 +17,7 @@
 - `WITH_USB` is never defined (that removes the HID fallback and `apcmicrolink-usb.h`).
 - The NUT sources `#include "config.h"`, `"main.h"` etc. unqualified, so the shim headers that carry those NUT names live in the same directory as the vendored `.c` files (`components/smartslot/nut/`); the quoted include finds them without build flags. Shim-only headers (`nutshim.h`, `os.h`, `nutdrv.h`, `nutproto.h`, `upsd.h`) are `extern "C"`-guarded.
 - Driver options: `cmdsrc` default `smartslot1`, `baudrate` default `9600`; UART 8N1; poll every `poll_interval` seconds (driver-owned, default 2).
-- Microlink probe: 9600 baud, send `0xFD`, read for 1.5 s, success = ≥ 8 bytes and first byte ≠ `0x00`.
+- Microlink probe: 9600 baud, send `0xFD`, read for 1.5 s, success = ≥ 8 bytes (any first byte: a real SMT750 frame starts with `0x00`, so the earlier "first byte ≠ `0x00`" rule was dropped).
 - UART_SEL (SmartSlot pin 11) default low; configurable (`uart_sel_level`); never floats.
 - One NUT UPS named `ups`; at most 4 clients; no default user; reads never need login; `INSTCMD`, `SET VAR` and `LOGIN` need the YAML `nut.username`/`nut.password`, else `ERR ACCESS-DENIED`; `STARTTLS` → `ERR FEATURE-NOT-CONFIGURED`.
 - No Wi-Fi, SNMP, TLS or mDNS in the component; OTA, web server, API and logger are ESPHome's and the user's YAML decides them.

@@ -26,11 +26,12 @@ static void probe_with(const uint8_t *reply, size_t n, bool expect) {
 
 void test_microlink_probe_cases(void) {
     static const uint8_t ok[8] = {0x01, 2, 3, 4, 5, 6, 7, 8};
-    static const uint8_t zero_led[8] = {0x00, 2, 3, 4, 5, 6, 7, 8};
+    /* first 8 bytes of the frame an SMT750 (firmware 9.2) sends after 0xFD */
+    static const uint8_t smt750[8] = {0x00, 0x0a, 0x10, 0x89, 0x00, 0x12, 0x11, 0x09};
     static const uint8_t short_reply[7] = {1, 2, 3, 4, 5, 6, 7};
     probe_with(ok, sizeof ok, true);
     serial_host_reset();
-    probe_with(zero_led, sizeof zero_led, false);
+    probe_with(smt750, sizeof smt750, true);
     serial_host_reset();
     probe_with(short_reply, sizeof short_reply, false);
     serial_host_reset();
