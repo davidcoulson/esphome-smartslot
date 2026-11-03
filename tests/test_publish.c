@@ -26,8 +26,10 @@ void test_publish_only_when_running_fresh_and_present(void) {
     TEST_ASSERT_TRUE(nutshim_value_for_publish("ups.status", buf, sizeof buf));
     TEST_ASSERT_EQUAL_STRING("OL", buf);
     TEST_ASSERT_FALSE(nutshim_value_for_publish("no.such.var", buf, sizeof buf));
+    TEST_ASSERT_EQUAL(0, nutshim_lookup("no.such.var", buf, sizeof buf)); /* served, but absent: goes unknown */
     fake_stale = true;
     os_sleep_ms(50);
     TEST_ASSERT_FALSE(nutshim_value_for_publish("ups.status", buf, sizeof buf));
+    TEST_ASSERT_EQUAL(-1, nutshim_lookup("no.such.var", buf, sizeof buf)); /* stale: keep the last value */
     nutdrv_stop();
 }

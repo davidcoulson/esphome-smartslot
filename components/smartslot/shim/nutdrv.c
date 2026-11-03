@@ -209,7 +209,9 @@ void nutdrv_stop(void) {
     os_sem_take(stopped_sem, 5000);
 }
 
-bool nutshim_value_for_publish(const char *var, char *buf, size_t len) {
-    if (state != NUTDRV_RUNNING || !dstate_is_servable()) return false;
-    return len && dstate_copyinfo(var, buf, len); /* copies under the dstate mutex */
+int nutshim_lookup(const char *var, char *buf, size_t len) {
+    if (state != NUTDRV_RUNNING || !dstate_is_servable()) return -1;
+    return len && dstate_copyinfo(var, buf, len) ? 1 : 0; /* copies under the dstate mutex */
 }
+
+bool nutshim_value_for_publish(const char *var, char *buf, size_t len) { return nutshim_lookup(var, buf, len) == 1; }

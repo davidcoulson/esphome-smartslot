@@ -26,7 +26,10 @@ int nutdrv_start(const nutdrv_config *cfg);
 int nutdrv_instcmd(const char *cmd, const char *param, uint32_t timeout_ms);
 int nutdrv_setvar(const char *var, const char *val, uint32_t timeout_ms);
 nutdrv_state_t nutdrv_state(void);
-/* Copies the value only while the driver is RUNNING, data is fresh and the variable exists; else false (publish nothing). */
+/* 1: value copied. 0: the UPS is being served but does not report var. -1: nothing is being served (driver not
+ * RUNNING or data stale). The variable table is never cleared, so 0 always means the UPS dropped or never had it. */
+int nutshim_lookup(const char *var, char *buf, size_t len);
+/* nutshim_lookup() == 1: publish nothing unless the value is current. */
 bool nutshim_value_for_publish(const char *var, char *buf, size_t len);
 /* Tests only: ask the task to finish and wait for it. */
 void nutdrv_stop(void);
