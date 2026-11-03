@@ -51,6 +51,8 @@ void SmartSlot::setup() {
 
 int SmartSlot::instcmd(const std::string &cmd) { return nutdrv_instcmd(cmd.c_str(), nullptr, 0); }
 
+bool SmartSlot::online() const { return nutdrv_state() == NUTDRV_RUNNING && dstate_is_servable(); }
+
 void SmartSlot::update() {
   char buf[256];
   for (auto &p : this->sensors_) {
@@ -61,7 +63,15 @@ void SmartSlot::update() {
   }
   for (auto &p : this->text_sensors_)
     if (nutshim_value_for_publish(p.second.c_str(), buf, sizeof buf)) p.first->publish_state(buf);
-  if (nutdrv_state() != NUTDRV_RUNNING || !dstate_is_servable()) {
+  // Logged so that syslog carries UPS events.
+  bool on = this->online();
+  if (on != this->online_) ESP_LOGI(TAG, "UPS communication %s", on ? "established" : "lost");
+  this->online_ = on;
+  if (on && nutshim_value_for_publish("ups.status", buf, sizeof buf) && this->last_status_ != buf) {
+    ESP_LOGI(TAG, "UPS status: %s -> %s", this->last_status_.empty() ? "-" : this->last_status_.c_str(), buf);
+    this->last_status_ = buf;
+  }
+  if (!on) {
     this->stale_polls_++;
     this->status_set_warning();
   } else {

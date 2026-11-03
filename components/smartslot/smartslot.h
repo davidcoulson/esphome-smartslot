@@ -39,6 +39,8 @@ class SmartSlot : public PollingComponent {
   int instcmd(const std::string &cmd);
   // Update cycles that found the driver down or the UPS data stale (health counter for the UI).
   uint32_t stale_polls() const { return this->stale_polls_; }
+  // The driver is talking to the UPS and its data is fresh.
+  bool online() const;
 
   void setup() override;
   void update() override;
@@ -52,6 +54,8 @@ class SmartSlot : public PollingComponent {
   uint16_t nut_port_{3493};
   std::string nut_user_, nut_pass_;
   uint32_t stale_polls_{0};
+  bool online_{false};
+  std::string last_status_;  // last ups.status seen while online, for the change log
   std::vector<std::pair<sensor::Sensor *, std::string>> sensors_;
   std::vector<std::pair<text_sensor::TextSensor *, std::string>> text_sensors_;
 };

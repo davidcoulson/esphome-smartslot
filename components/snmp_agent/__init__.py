@@ -3,11 +3,12 @@ import re
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import sensor, text_sensor
-from esphome.const import CONF_ID, CONF_PORT, CONF_SENSOR, CONF_TYPE, CONF_VALUE
+from esphome.components import binary_sensor, sensor, text_sensor
+from esphome.const import CONF_HOST, CONF_ID, CONF_NAME, CONF_PORT, CONF_SENSOR, CONF_STATUS, CONF_TYPE, CONF_VALUE
 
 CODEOWNERS = ["@davidcoulson"]
 DEPENDENCIES = ["esp32", "network"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 
 CONF_COMMUNITY = "community"
 CONF_SYS_DESCR = "sys_descr"
@@ -20,12 +21,26 @@ CONF_OID = "oid"
 CONF_TEXT_SENSOR = "text_sensor"
 CONF_SCALE = "scale"
 CONF_MAP = "map"
+CONF_V2C = "v2c"
+CONF_ENGINE_ID = "engine_id"
+CONF_USERS = "users"
+CONF_AUTH_PROTOCOL = "auth_protocol"
+CONF_AUTH_PASSWORD = "auth_password"
+CONF_PRIV_PROTOCOL = "priv_protocol"
+CONF_PRIV_PASSWORD = "priv_password"
+CONF_TRAPS = "traps"
+CONF_LINK = "link"
+CONF_RECEIVERS = "receivers"
+CONF_USER = "user"
 
 snmp_ns = cg.esphome_ns.namespace("snmp_agent")
 SnmpAgent = snmp_ns.class_("SnmpAgent", cg.PollingComponent)
 
 # Values of snmp::Type in snmp_core.h
 TYPES = {"integer": 0, "gauge": 1, "timeticks": 2, "string": 3, "oid": 4}
+# Values of snmp::Auth and snmp::Priv in snmp_crypto.h
+AUTH = {"none": 0, "md5": 1, "sha": 2, "sha224": 3, "sha256": 4, "sha384": 5, "sha512": 6}
+PRIV = {"none": 0, "aes": 1}
 
 
 def valid_oid(value):
@@ -33,6 +48,72 @@ def valid_oid(value):
     if not re.fullmatch(r"\d+(\.\d+)+", value):
         raise cv.Invalid(f"'{value}' is not a dotted OID such as 1.3.6.1.2.1.1.5.0")
     return value
+
+
+def valid_engine_id(value):
+    value = cv.string_strict(value).replace(":", "").lower()
+    if not re.fullmatch(r"([0-9a-f]{2}){5,32}", value):
+        raise cv.Invalid("engine_id must be 5 to 32 bytes of hex, such as 80:00:01:3e:03:...")
+    return value
+
+
+def valid_user(config):
+    if config[CONF_AUTH_PROTOCOL] != "none" and CONF_AUTH_PASSWORD not in config:
+        raise cv.Invalid("auth_password is required with an auth_protocol")
+    if config[CONF_PRIV_PROTOCOL] != "none":
+        if config[CONF_AUTH_PROTOCOL] == "none":
+            raise cv.Invalid("priv_protocol needs an auth_protocol (SNMPv3 has no privacy without authentication)")
+        if CONF_PRIV_PASSWORD not in config:
+            raise cv.Invalid("priv_password is required with a priv_protocol")
+    return config
+
+
+PASSWORD = cv.All(cv.string, cv.Length(min=8))  # RFC 3414 11.2: at least 8 characters
+
+USER_SCHEMA = cv.All(
+    cv.Schema(
+        {
+            cv.Required(CONF_NAME): cv.All(cv.string, cv.Length(min=1, max=32)),
+            cv.Optional(CONF_AUTH_PROTOCOL, default="none"): cv.one_of(*AUTH, lower=True),
+            cv.Optional(CONF_AUTH_PASSWORD): PASSWORD,
+            cv.Optional(CONF_PRIV_PROTOCOL, default="none"): cv.one_of(*PRIV, lower=True),
+            cv.Optional(CONF_PRIV_PASSWORD): PASSWORD,
+        }
+    ),
+    valid_user,
+)
+
+RECEIVER_SCHEMA = cv.All(
+    cv.Schema(
+        {
+            cv.Required(CONF_HOST): cv.ipv4address,
+            cv.Optional(CONF_PORT, default=162): cv.port,
+            cv.Optional(CONF_COMMUNITY): cv.string,  # v2c; defaults to the agent's community
+            cv.Optional(CONF_USER): cv.string,  # v3, from this user
+        }
+    ),
+    cv.has_at_most_one_key(CONF_COMMUNITY, CONF_USER),
+)
+
+TRAPS_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_STATUS): cv.use_id(text_sensor.TextSensor),  # ups.status: on battery, low battery, ...
+        cv.Optional(CONF_LINK): cv.use_id(binary_sensor.BinarySensor),  # UPS communication up/down
+        cv.Required(CONF_RECEIVERS): cv.All(cv.ensure_list(RECEIVER_SCHEMA), cv.Length(min=1)),
+    }
+)
+
+
+def valid_agent(config):
+    users = [u[CONF_NAME] for u in config[CONF_USERS]]
+    if len(set(users)) != len(users):
+        raise cv.Invalid("SNMPv3 user names must be unique")
+    for r in config.get(CONF_TRAPS, {}).get(CONF_RECEIVERS, []):
+        if CONF_USER in r and r[CONF_USER] not in users:
+            raise cv.Invalid(f"trap receiver {r[CONF_HOST]}: no SNMPv3 user named '{r[CONF_USER]}'")
+    if not config[CONF_V2C] and not users:
+        raise cv.Invalid("with v2c: false, add at least one SNMPv3 user")
+    return config
 
 
 READING_SCHEMA = cv.All(
@@ -51,19 +132,26 @@ READING_SCHEMA = cv.All(
     cv.has_exactly_one_key(CONF_SENSOR, CONF_TEXT_SENSOR, CONF_VALUE),
 )
 
-CONFIG_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(): cv.declare_id(SnmpAgent),
-        cv.Optional(CONF_PORT, default=161): cv.port,
-        cv.Optional(CONF_COMMUNITY, default="public"): cv.string,
-        cv.Optional(CONF_SYS_DESCR, default="APC SmartSlot network card (esphome-smartslot)"): cv.string,
-        cv.Optional(CONF_SYS_OBJECT_ID, default="1.3.6.1.4.1.318.1.3.2"): valid_oid,
-        cv.Optional(CONF_SYS_NAME, default=""): cv.string,  # empty = the ESPHome node name
-        cv.Optional(CONF_SYS_CONTACT, default=""): cv.string,
-        cv.Optional(CONF_SYS_LOCATION, default=""): cv.string,
-        cv.Optional(CONF_READINGS, default=[]): cv.ensure_list(READING_SCHEMA),
-    }
-).extend(cv.polling_component_schema("1s"))
+CONFIG_SCHEMA = cv.All(
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.declare_id(SnmpAgent),
+            cv.Optional(CONF_PORT, default=161): cv.port,
+            cv.Optional(CONF_COMMUNITY, default="public"): cv.string,
+            cv.Optional(CONF_SYS_DESCR, default="APC SmartSlot network card (esphome-smartslot)"): cv.string,
+            cv.Optional(CONF_SYS_OBJECT_ID, default="1.3.6.1.4.1.318.1.3.2"): valid_oid,
+            cv.Optional(CONF_SYS_NAME, default=""): cv.string,  # empty = the ESPHome node name
+            cv.Optional(CONF_SYS_CONTACT, default=""): cv.string,
+            cv.Optional(CONF_SYS_LOCATION, default=""): cv.string,
+            cv.Optional(CONF_READINGS, default=[]): cv.ensure_list(READING_SCHEMA),
+            cv.Optional(CONF_V2C, default=True): cv.boolean,  # also covers v1
+            cv.Optional(CONF_ENGINE_ID): valid_engine_id,  # default 80:00:01:3e:03 + MAC
+            cv.Optional(CONF_USERS, default=[]): cv.ensure_list(USER_SCHEMA),
+            cv.Optional(CONF_TRAPS): TRAPS_SCHEMA,
+        }
+    ).extend(cv.polling_component_schema("1s")),
+    valid_agent,
+)
 
 
 async def to_code(config):
@@ -92,3 +180,27 @@ async def to_code(config):
                 cg.add(var.add_map(token, num))
         else:
             cg.add(var.add_static(r[CONF_OID], r[CONF_VALUE], t))
+    cg.add(var.set_v2c(config[CONF_V2C]))
+    if CONF_ENGINE_ID in config:
+        cg.add(var.set_engine_id(config[CONF_ENGINE_ID]))
+    for u in config[CONF_USERS]:
+        cg.add(
+            var.add_user(
+                u[CONF_NAME],
+                AUTH[u[CONF_AUTH_PROTOCOL]],
+                u.get(CONF_AUTH_PASSWORD, ""),
+                PRIV[u[CONF_PRIV_PROTOCOL]],
+                u.get(CONF_PRIV_PASSWORD, ""),
+            )
+        )
+    if traps := config.get(CONF_TRAPS):
+        if CONF_STATUS in traps:
+            cg.add(var.set_status(await cg.get_variable(traps[CONF_STATUS])))
+        if CONF_LINK in traps:
+            cg.add(var.set_link(await cg.get_variable(traps[CONF_LINK])))
+        for r in traps[CONF_RECEIVERS]:
+            cg.add(
+                var.add_receiver(
+                    str(r[CONF_HOST]), r[CONF_PORT], r.get(CONF_COMMUNITY, config[CONF_COMMUNITY]), r.get(CONF_USER, "")
+                )
+            )

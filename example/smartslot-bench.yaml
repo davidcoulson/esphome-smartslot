@@ -56,6 +56,21 @@ ota:
   - platform: web_server       # firmware upload from the web UI
 logger:
   level: INFO
+
+# Log forwarding: UPS events (status changes, communication lost/established, traps sent) are logged at INFO.
+udp:
+  addresses: [!secret syslog_host]
+syslog:
+  level: INFO
+  port: 514
+
+# MQTT alongside the native API, for brokers and tools other than Home Assistant. Discovery is off because the API
+# already creates the Home Assistant entities; turn it on (and drop api:) for an MQTT-only setup.
+mqtt:
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: false
 web_server:
   version: 3
   local: true                  # UI assets served from flash; no internet needed
@@ -146,6 +161,12 @@ sensor:
     web_server: { sorting_group_id: grp_status }
 
 binary_sensor:
+  - platform: template
+    id: ups_link
+    name: UPS communication
+    device_class: connectivity
+    lambda: return id(ups).online();
+    web_server: { sorting_group_id: grp_status }
   - platform: template
     name: Ethernet link
     device_class: connectivity
@@ -238,7 +259,23 @@ button:
 # map (text sensor -> number): first token of the state that matches wins, "*" is the fallback.
 snmp_agent:
   port: 161
-  community: public
+  community: public          # v1/v2c, read-only; set v2c: false to serve SNMPv3 only
+  # SNMPv3 (USM). Auth md5|sha|sha224|sha256|sha384|sha512, priv aes (AES-128); passwords at least 8 characters.
+  # Each user is served at exactly its configured level. The engine ID (default 80:00:01:3e:03 + MAC) is in the log.
+  users:
+    - name: monitor
+      auth_protocol: sha256
+      auth_password: !secret snmp_auth_password
+      priv_protocol: aes
+      priv_password: !secret snmp_priv_password
+  # PowerNet-MIB traps: coldStart at boot, on battery / power restored, low battery, overload, replace battery,
+  # output off, and communication lost / established. v2c with the community above, or v3 with user:.
+  traps:
+    status: ups_status
+    link: ups_link
+    receivers:
+      - host: !secret trap_host
+      # - { host: 192.168.1.20, user: monitor }
   sys_contact: admin@example.com
   sys_location: Rack 1
   readings:

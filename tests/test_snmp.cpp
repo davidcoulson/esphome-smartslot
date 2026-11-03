@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Host tests for the SNMP BER codec, OID ordering and the v1/v2c request handler. Build: make snmp
+// Host tests for the SNMP BER codec, OID ordering, the v1/v2c and v3 (USM) request handler and traps. Build: make snmp
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -35,22 +35,18 @@ static Bytes request(int version, const char *comm, uint8_t pdu, int64_t f1, int
 }
 
 struct Resp {
-  int64_t err = -1, idx = -1;
+  uint8_t tag = 0;
+  int64_t reqid = -1, err = -1, idx = -1;
   std::vector<std::pair<Oid, std::pair<uint8_t, Bytes>>> vbs;
 };
-static Resp parse(const Bytes &b) {
+static Resp parse_pdu(const uint8_t *p, const uint8_t *end) {
   Resp r;
-  const uint8_t *p = b.data(), *end = p + b.size(), *c;
+  const uint8_t *c;
   size_t cl;
+  assert(ber_read(&p, end, &r.tag, &c, &cl));
+  p = c; end = c + cl;
   uint8_t t;
-  assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);
-  p = c; end = c + cl;
-  int64_t v;
-  assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &v));
-  assert(ber_read(&p, end, &t, &c, &cl) && t == 4);
-  assert(ber_read(&p, end, &t, &c, &cl) && t == 0xA2);
-  p = c; end = c + cl;
-  assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &v) && v == 42);
+  assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &r.reqid));
   assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &r.err));
   assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &r.idx));
   assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);
@@ -66,6 +62,56 @@ static Resp parse(const Bytes &b) {
     r.vbs.push_back({o, {t, Bytes(c, c + cl)}});
   }
   return r;
+}
+static Resp parse(const Bytes &b) {
+  const uint8_t *p = b.data(), *end = p + b.size(), *c;
+  size_t cl;
+  uint8_t t;
+  int64_t v;
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);
+  p = c; end = c + cl;
+  assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &v));
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 4);
+  Resp r = parse_pdu(p, end);
+  assert(r.tag == 0xA2 && r.reqid == 42);
+  return r;
+}
+// A plaintext (noAuthNoPriv or authNoPriv) SNMPv3 message: returns its PDU and the engine ID it names.
+static Resp parse_v3(const Bytes &b, Bytes *engine = nullptr) {
+  const uint8_t *p = b.data(), *end = p + b.size(), *c;
+  size_t cl;
+  uint8_t t;
+  int64_t v;
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);
+  p = c; end = c + cl;
+  assert(ber_read(&p, end, &t, &c, &cl) && ber_read_int(c, cl, &v) && v == 3);
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);  // msgGlobalData
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 4);     // msgSecurityParameters
+  const uint8_t *q = c, *qe = c + cl;
+  assert(ber_read(&q, qe, &t, &c, &cl) && t == 0x30);
+  q = c; qe = c + cl;
+  assert(ber_read(&q, qe, &t, &c, &cl) && t == 4);
+  if (engine) *engine = Bytes(c, c + cl);
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 0x30);  // ScopedPDU
+  p = c; end = c + cl;
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 4);
+  assert(ber_read(&p, end, &t, &c, &cl) && t == 4);
+  return parse_pdu(p, end);
+}
+static Bytes get_pdu(const char *oid) {
+  Bytes vb = ber_oid(O(oid));
+  cat(vb, Bytes{0x05, 0x00});
+  Bytes pd = ber_int(2, 42);
+  cat(pd, ber_int(2, 0));
+  cat(pd, ber_int(2, 0));
+  cat(pd, ber_tlv(0x30, ber_tlv(0x30, vb)));
+  return ber_tlv(0xA0, pd);
+}
+static std::string hex(const Bytes &b) {
+  std::string s;
+  char h[3];
+  for (auto x : b) snprintf(h, sizeof h, "%02x", x), s += h;
+  return s;
 }
 
 static Agent *make() {
@@ -184,6 +230,108 @@ int main() {
     a->handle(m.data(), m.size(), out);
   }
   delete a;
+
+  // --- SNMPv3 USM
+  // RFC 3414 A.3.1 / A.3.2 key localization vectors
+  Bytes eid2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
+  assert(hex(localize_key(AUTH_MD5, "maplesyrup", eid2)) == "526f5eed9fcce26f8964c2930787d82b");
+  assert(hex(localize_key(AUTH_SHA, "maplesyrup", eid2)) == "6695febc9288e36282235fc7151f128497b38f3f");
+  // RFC 7860 lengths
+  assert(localize_key(AUTH_SHA512, "maplesyrup", eid2).size() == 64 && mac_len(AUTH_SHA256) == 24);
+
+  Bytes eid = {0x80, 0x00, 0x01, 0x3e, 0x03, 0x02, 0, 0, 0, 0, 0x01};
+  a = make();
+  a->set_engine(eid, 5, 1);
+  assert(a->add_user("noauth", AUTH_NONE, "", PRIV_NONE, ""));
+  assert(a->add_user("auth", AUTH_SHA256, "authpass123", PRIV_NONE, ""));
+  assert(a->add_user("priv", AUTH_SHA, "authpass123", PRIV_AES, "privpass123"));
+  assert(!a->add_user("bad", AUTH_NONE, "", PRIV_AES, "privpass123"));  // priv without auth
+  // a "manager" with the same engine view builds requests; it holds the same localized keys
+  Agent m;
+  m.set_engine(eid, 5, 99);
+  m.add_user("auth", AUTH_SHA256, "authpass123", PRIV_NONE, "");
+  assert(m.user("auth")->auth_key == a->user("auth")->auth_key);
+
+  // noAuthNoPriv and authNoPriv GETs are answered at the same level
+  q = m.v3_message(7, 0, "noauth", nullptr, get_pdu("1.3.6.1.2.1.1.1.0"), true);
+  assert(a->handle(q.data(), q.size(), out));
+  r = parse_v3(out);
+  assert(r.tag == 0xA2 && r.reqid == 42 && r.err == 0 && r.vbs[0].second.second == Bytes({'h', 'e', 'l', 'l', 'o'}));
+  q = m.v3_message(8, 1, "auth", m.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true);
+  assert(a->handle(q.data(), q.size(), out));
+  r = parse_v3(out);
+  assert(r.tag == 0xA2 && r.vbs[0].second.first == 4);
+
+  auto report = [&](const Bytes &rq, uint32_t stat) {
+    Bytes o;
+    assert(a->handle(rq.data(), rq.size(), o));
+    Bytes e;
+    Resp rp = parse_v3(o, &e);
+    assert(rp.tag == 0xA8 && e == eid && rp.vbs.size() == 1);
+    assert((rp.vbs[0].first == Oid{1, 3, 6, 1, 6, 3, 15, 1, 1, stat, 0}));
+  };
+  // discovery: an empty engine ID gets unknownEngineIDs carrying ours
+  Agent disc;
+  q = disc.v3_message(1, 0, "", nullptr, get_pdu("1.3.6.1.2.1.1.1.0"), true);
+  report(q, 4);
+  report(m.v3_message(2, 0, "nobody", nullptr, get_pdu("1.3.6.1.2.1.1.1.0"), true), 3);  // unknownUserNames
+  report(m.v3_message(3, 0, "auth", nullptr, get_pdu("1.3.6.1.2.1.1.1.0"), true), 1);    // level below the user's
+  // a tampered byte in an authenticated message: wrongDigests
+  q = m.v3_message(4, 1, "auth", m.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true);
+  q[q.size() - 3] ^= 1;  // last OID subid
+  report(q, 5);
+  // the wrong password: wrongDigests
+  Agent wrong;
+  wrong.set_engine(eid, 5, 0);
+  wrong.add_user("auth", AUTH_SHA256, "wrongpass123", PRIV_NONE, "");
+  report(wrong.v3_message(5, 1, "auth", wrong.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true), 5);
+  // a stale boots count: notInTimeWindows, sent authenticated
+  Agent old;
+  old.set_engine(eid, 4, 0);
+  old.add_user("auth", AUTH_SHA256, "authpass123", PRIV_NONE, "");
+  report(old.v3_message(6, 1, "auth", old.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true), 2);
+  // not reportable: silently dropped
+  q = m.v3_message(2, 0, "nobody", nullptr, get_pdu("1.3.6.1.2.1.1.1.0"), false);
+  assert(!a->handle(q.data(), q.size(), out));
+  // truncated and corrupted v3 messages never crash
+  q = m.v3_message(8, 1, "auth", m.user("auth"), get_pdu("1.3.6.1.2.1.1.1.0"), true);
+  for (size_t len = 0; len < q.size(); len++) a->handle(q.data(), len, out);
+  for (int i = 0; i < 20000; i++) {
+    Bytes mm = q;
+    mm[rand() % mm.size()] = rand();
+    a->handle(mm.data(), mm.size(), out);
+  }
+  // v2c: false drops v1 and v2c
+  a->v2c = false;
+  q = request(1, "public", 0xA0, 0, 0, {"1.3.6.1.2.1.1.1.0"});
+  assert(!a->handle(q.data(), q.size(), out));
+  delete a;
+
+  // --- traps
+  auto ev = status_traps("OL", "OB LB");
+  assert(ev.size() == 2 && ev[0].id == 5 && ev[1].id == 7);
+  ev = status_traps("OB LB", "OL CHRG");
+  assert(ev.size() == 2 && ev[0].id == 9 && ev[1].id == 11);
+  assert(status_traps("OL", "OL CHRG").empty() && status_traps("OL OFF", "OL").empty());
+  assert(status_traps("OL", "OL OVER RB").size() == 2 && status_traps("OLB", "OL").empty());  // whole tokens only
+  Agent t;
+  Entry txt;
+  txt.type = STRING;
+  txt.str = "UPS: On battery power.";
+  Bytes tr = t.trap_v2c("public", 100, O("1.3.6.1.4.1.318.0.5"), {{O("1.3.6.1.4.1.318.2.3.3.0"), txt}});
+  const uint8_t *tp = tr.data(), *te = tp + tr.size(), *tc;
+  size_t tl;
+  uint8_t tt;
+  assert(ber_read(&tp, te, &tt, &tc, &tl) && tt == 0x30);
+  tp = tc; te = tc + tl;
+  assert(ber_read(&tp, te, &tt, &tc, &tl) && ber_read(&tp, te, &tt, &tc, &tl) && tt == 4);
+  r = parse_pdu(tp, te);
+  assert(r.tag == 0xA7 && r.vbs.size() == 3);
+  assert((r.vbs[0].first == Oid{1, 3, 6, 1, 2, 1, 1, 3, 0}) && r.vbs[0].second.first == 0x43);
+  Bytes trap_oid = ber_oid(O("1.3.6.1.4.1.318.0.5"));
+  assert((r.vbs[1].first == Oid{1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0}) && r.vbs[1].second.first == 6 &&
+         r.vbs[1].second.second == Bytes(trap_oid.begin() + 2, trap_oid.end()));
+  assert(r.vbs[2].second.first == 4 && r.vbs[2].second.second.size() == strlen("UPS: On battery power."));
   puts("snmp: all tests passed");
   return 0;
 }

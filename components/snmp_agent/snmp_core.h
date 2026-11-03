@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// SNMPv1/v2c request handling and a minimal BER codec. No ESPHome or lwIP dependencies, so it builds on the host.
+// SNMPv1/v2c/v3 (USM) request handling, notifications and a minimal BER codec. No ESPHome or lwIP dependencies, so
+// it builds on the host.
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <map>
 #include <mutex>
 #include <string>
 #include <vector>
+
+#include "snmp_crypto.h"
 
 namespace snmp {
 
@@ -34,9 +39,31 @@ struct Entry {
   Oid oid;
 };
 
+struct User {
+  std::string name;
+  Auth auth{AUTH_NONE};
+  Priv priv{PRIV_NONE};
+  Bytes auth_key, priv_key;  // localized to the engine ID
+  int level() const { return priv != PRIV_NONE ? 2 : auth != AUTH_NONE ? 1 : 0; }
+};
+
+// RFC 3414 A.2: password to key, then localized to the engine ID. Empty on failure.
+Bytes localize_key(Auth a, const std::string &password, const Bytes &engine_id);
+
+// PowerNet-MIB traps (ENTERPRISE apc, sent as 1.3.6.1.4.1.318.0.<id>) implied by a ups.status change.
+struct TrapEvent {
+  uint32_t id;
+  const char *text;
+};
+std::vector<TrapEvent> status_traps(const std::string &prev, const std::string &cur);
+
+struct Pdu;
+struct Result;
+
 class Agent {
  public:
   std::string community{"public"};
+  bool v2c{true};  // also covers v1
 
   Entry *add(const Oid &oid, Type type);  // returns the existing entry if the OID is already present
   void set(Entry *e, int64_t v);
@@ -48,9 +75,40 @@ class Agent {
   // Returns false when the datagram must be dropped silently (garbage, wrong community, unsupported PDU).
   bool handle(const uint8_t *in, size_t n, Bytes &out);
 
+  // SNMPv3. Call set_engine before add_user; boots must go up on every restart (RFC 3414 2.2.2).
+  void set_engine(const Bytes &engine_id, uint32_t boots, uint64_t salt_seed);
+  bool add_user(const std::string &name, Auth auth, const std::string &auth_pw, Priv priv, const std::string &priv_pw);
+  const Bytes &engine_id() const { return engine_id_; }
+  uint32_t engine_boots() const { return boots_; }
+  uint32_t engine_time() const;
+  const User *user(const std::string &name) const;
+
+  // Notifications (SNMPv2-Trap-PDU). vars are extra varbinds after sysUpTime.0 and snmpTrapOID.0.
+  Bytes trap_v2c(const std::string &comm, uint32_t uptime_cs, const Oid &trap,
+                 const std::vector<std::pair<Oid, Entry>> &vars);
+  Bytes trap_v3(const User &u, uint32_t uptime_cs, const Oid &trap, const std::vector<std::pair<Oid, Entry>> &vars);
+  // A whole v3 message from this engine at the user's level (for traps, and for the tests to build requests).
+  Bytes v3_message(int64_t msg_id, int level, const std::string &user_name, const User *u, const Bytes &pdu,
+                   bool reportable);
+
  private:
+  Result process_(const Pdu &p, bool v1, size_t budget);
+  bool handle_v3_(const uint8_t *msg, size_t n, const uint8_t *p, const uint8_t *end, Bytes &out);
+  Bytes report_(int64_t msg_id, int level, const std::string &user_name, const User *u, int64_t reqid,
+                const Oid &counter, uint32_t value);
+  Bytes trap_pdu_(uint32_t uptime_cs, const Oid &trap, const std::vector<std::pair<Oid, Entry>> &vars);
+
   std::mutex mu_;
   std::map<Oid, Entry> table_;  // node-based, so Entry pointers stay valid
+  Bytes engine_id_;
+  uint32_t boots_{1};
+  std::chrono::steady_clock::time_point t0_{std::chrono::steady_clock::now()};
+  std::vector<User> users_;
+  std::atomic<uint64_t> salt_{0};
+  std::atomic<uint32_t> trap_id_{1};
+  // usmStats counters (1.3.6.1.6.3.15.1.1.x) and snmpUnknownContexts, only touched by handle()
+  uint32_t unsupported_levels_{0}, not_in_window_{0}, unknown_users_{0}, unknown_engines_{0}, wrong_digests_{0},
+      decryption_errors_{0}, unknown_contexts_{0};
 };
 
 }  // namespace snmp

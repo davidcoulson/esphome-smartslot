@@ -5,13 +5,17 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
+#include "esphome/components/network/util.h"
 #include "esphome/core/application.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
+#include "esphome/core/preferences.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -55,7 +59,50 @@ void SnmpAgent::add_static(const std::string &oid, const std::string &value, int
   }
 }
 
+void SnmpAgent::add_receiver(const std::string &host, uint16_t port, const std::string &community,
+                             const std::string &user) {
+  Receiver r{};
+  r.to.sin_family = AF_INET;
+  r.to.sin_port = htons(port);
+  if (inet_aton(host.c_str(), &r.to.sin_addr) == 0) return;  // validated as IPv4 in the schema
+  r.community = community;
+  r.user = user;
+  this->receivers_.push_back(r);
+}
+
+void SnmpAgent::setup_engine_() {
+  // snmpEngineBoots must go up on every restart (RFC 3414 2.2.2), so it lives in flash; one write per boot.
+  ESPPreferenceObject pref = global_preferences->make_preference<uint32_t>(fnv1_hash("snmp_engine_boots"), true);
+  uint32_t boots = 0;
+  pref.load(&boots);
+  boots = boots >= 2147483646u ? 2147483647u : boots + 1;  // latches at the maximum (RFC 3414 2.2.2)
+  pref.save(&boots);
+  global_preferences->sync();
+  snmp::Bytes eid;
+  for (size_t i = 0; i + 1 < this->engine_hex_.size(); i += 2)
+    eid.push_back((uint8_t) strtoul(this->engine_hex_.substr(i, 2).c_str(), nullptr, 16));
+  if (eid.empty()) {
+    // RFC 3411 SnmpEngineID format 3: enterprise 318 (APC) with the high bit set, then the MAC address.
+    uint8_t mac[6];
+    get_mac_address_raw(mac);
+    eid = {0x80, 0x00, 0x01, 0x3e, 0x03};
+    eid.insert(eid.end(), mac, mac + 6);
+  }
+  this->agent_.set_engine(eid, boots, ((uint64_t) random_uint32() << 32) | random_uint32());
+  for (auto &u : this->users_) {
+    if (!this->agent_.add_user(u.name, (snmp::Auth) u.auth, u.auth_pw, (snmp::Priv) u.priv, u.priv_pw))
+      ESP_LOGE(TAG, "SNMPv3 user %s: key setup failed", u.name.c_str());
+    u.auth_pw.clear();
+    u.priv_pw.clear();
+  }
+}
+
 void SnmpAgent::setup() {
+  this->setup_engine_();
+  if (!this->receivers_.empty()) {
+    this->trap_fd_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (this->trap_fd_ < 0) ESP_LOGE(TAG, "trap socket failed (errno %d)", errno);
+  }
   // sysName is filled here because App.get_name() is not known to the generated set_agent() call.
   this->agent_.set(this->agent_.add({1, 3, 6, 1, 2, 1, 1, 5, 0}, snmp::STRING), this->name_.empty() ? App.get_name() : this->name_);
   this->update();
@@ -64,6 +111,7 @@ void SnmpAgent::setup() {
 
 void SnmpAgent::update() {
   this->agent_.set(this->uptime_, (int64_t) (millis() / 10));  // shortcut: wraps with millis() at ~49 days, as sysUpTime itself does at 497
+  this->traps_();
   for (auto &r : this->readings_) {
     snmp::Entry *e = r.entry;
     if (r.s != nullptr) {
@@ -107,6 +155,50 @@ void SnmpAgent::update() {
   }
 }
 
+static snmp::Oid apc_trap(uint32_t id) { return {1, 3, 6, 1, 4, 1, 318, 0, id}; }
+
+void SnmpAgent::traps_() {
+  if (this->trap_fd_ < 0 || !network::is_connected()) return;  // changes are picked up once the network is back
+  if (!this->cold_sent_) {
+    this->send_trap_({1, 3, 6, 1, 6, 3, 1, 1, 5, 1}, nullptr);  // coldStart
+    this->cold_sent_ = true;
+  }
+  bool link = this->link_ == nullptr || (this->link_->has_state() && this->link_->state);
+  if (this->link_ != nullptr && link != this->last_link_) {
+    this->last_link_ = link;
+    this->send_trap_(apc_trap(link ? 8 : 1), link ? "UPS: Communication established." : "UPS: Communication lost.");
+  }
+  // While the UPS link is down the status is stale; changes made meanwhile are reported once it is back.
+  if (this->status_ == nullptr || !link || !this->status_->has_state() || this->status_->state == this->last_status_)
+    return;
+  for (auto &ev : snmp::status_traps(this->last_status_, this->status_->state)) this->send_trap_(apc_trap(ev.id), ev.text);
+  this->last_status_ = this->status_->state;
+}
+
+void SnmpAgent::send_trap_(const snmp::Oid &trap, const char *text) {
+  std::vector<std::pair<snmp::Oid, snmp::Entry>> vars;
+  if (text != nullptr) {
+    snmp::Entry e;
+    e.type = snmp::STRING;
+    e.valid = true;
+    e.str = text;
+    vars.push_back({{1, 3, 6, 1, 4, 1, 318, 2, 3, 3, 0}, e});  // mtrapargsString.0
+  }
+  uint32_t up = millis() / 10;
+  for (auto &r : this->receivers_) {
+    snmp::Bytes b;
+    const snmp::User *u = r.user.empty() ? nullptr : this->agent_.user(r.user);
+    if (r.user.empty()) {
+      b = this->agent_.trap_v2c(r.community, up, trap, vars);
+    } else if (u != nullptr) {
+      b = this->agent_.trap_v3(*u, up, trap, vars);
+    }
+    if (b.empty() || sendto(this->trap_fd_, b.data(), b.size(), 0, (const sockaddr *) &r.to, sizeof r.to) < 0)
+      ESP_LOGW(TAG, "trap to %s:%u failed", inet_ntoa(r.to.sin_addr), ntohs(r.to.sin_port));
+  }
+  ESP_LOGI(TAG, "trap .%u.%u: %s", (unsigned) trap[trap.size() - 2], (unsigned) trap.back(), text ? text : "coldStart");
+}
+
 void SnmpAgent::task_(void *arg) {
   static_cast<SnmpAgent *>(arg)->serve_();
   vTaskDelete(nullptr);
@@ -146,8 +238,13 @@ void SnmpAgent::serve_() {
 }
 
 void SnmpAgent::dump_config() {
-  ESP_LOGCONFIG(TAG, "SNMP agent (v1/v2c, read-only): UDP port %u, %u readings", this->port_,
+  ESP_LOGCONFIG(TAG, "SNMP agent (read-only): UDP port %u, %u readings", this->port_,
                 (unsigned) this->readings_.size());
+  ESP_LOGCONFIG(TAG, "  v1/v2c: %s, v3 users: %u, trap receivers: %u", YESNO(this->agent_.v2c),
+                (unsigned) this->users_.size(), (unsigned) this->receivers_.size());
+  // Trap receivers need this engine ID for v3 users (snmptrapd: createUser -e 0x<id> ...).
+  ESP_LOGCONFIG(TAG, "  engine ID: %s, boots: %u", format_hex(this->agent_.engine_id()).c_str(),
+                (unsigned) this->agent_.engine_boots());
 }
 
 }  // namespace snmp_agent

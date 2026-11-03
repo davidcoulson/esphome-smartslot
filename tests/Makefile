@@ -18,14 +18,18 @@ build/tests: $(SRCS) $(wildcard ../components/smartslot/*/*.c ../components/smar
 snmp: build/test_snmp
 	./build/test_snmp
 
-build/test_snmp: test_snmp.cpp ../components/snmp_agent/snmp_core.cpp ../components/snmp_agent/snmp_core.h
+SNMP_SRCS = ../components/snmp_agent/snmp_core.cpp ../components/snmp_agent/snmp_crypto.cpp
+SNMP_DEPS = $(SNMP_SRCS) ../components/snmp_agent/snmp_core.h ../components/snmp_agent/snmp_crypto.h
+SNMP_FLAGS = -std=c++17 -Wall -Wextra -g -DSNMP_CRYPTO_OPENSSL -I../components/snmp_agent
+
+build/test_snmp: test_snmp.cpp $(SNMP_DEPS)
 	@mkdir -p build
-	$(CXX) -std=c++17 -Wall -Wextra -g -O1 -fsanitize=address,undefined -I../components/snmp_agent test_snmp.cpp ../components/snmp_agent/snmp_core.cpp -o $@ -lpthread
+	$(CXX) $(SNMP_FLAGS) -O1 -fsanitize=address,undefined test_snmp.cpp $(SNMP_SRCS) -o $@ -lpthread -lcrypto
 
 .PHONY: snmp-serve
 snmp-serve: build/snmp_host
-	./build/snmp_host $(or $(PORT),1161)
+	./build/snmp_host $(or $(PORT),1161) $(TRAPPORT)
 
-build/snmp_host: snmp_host.cpp ../components/snmp_agent/snmp_core.cpp ../components/snmp_agent/snmp_core.h
+build/snmp_host: snmp_host.cpp $(SNMP_DEPS)
 	@mkdir -p build
-	$(CXX) -std=c++17 -Wall -Wextra -g -I../components/snmp_agent snmp_host.cpp ../components/snmp_agent/snmp_core.cpp -o $@ -lpthread
+	$(CXX) $(SNMP_FLAGS) snmp_host.cpp $(SNMP_SRCS) -o $@ -lpthread -lcrypto

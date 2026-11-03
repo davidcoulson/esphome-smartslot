@@ -61,7 +61,7 @@ below and the web UI is described under "Web interface".
 
 ## SNMP agent (`snmp_agent`)
 
-Read-only SNMPv1/v2c agent on UDP 161, so existing APC SNMP integrations (NUT `snmp-ups`, Home Assistant SNMP,
+Read-only SNMPv1/v2c/v3 agent on UDP 161, with traps, so existing APC SNMP integrations (NUT `snmp-ups`, Home Assistant SNMP,
 LibreNMS, Zabbix) keep working. Add `snmp_agent` to `components:` in `external_components`; the full default OID
 table is in `example/smartslot-bench.yaml`. Options: `port` (161), `community` (`public`, read-only; any other
 community is dropped silently), `sys_descr`, `sys_object_id` (default `1.3.6.1.4.1.318.1.3.2`, which is what
@@ -80,23 +80,62 @@ Served by default (the example table):
 | APC PowerNet, 1.3.6.1.4.1.318.1.1.1 | upsBasicIdentModel `.1.1.1.0`, upsBasicBatteryStatus `.2.1.1.0`, upsAdvBatteryCapacity `.2.2.1.0`, upsAdvBatteryTemperature `.2.2.2.0`, upsAdvBatteryRunTimeRemaining `.2.2.3.0`, upsAdvInputLineVoltage `.3.2.1.0`, upsAdvOutputVoltage `.4.2.1.0`, upsAdvOutputLoad `.4.2.3.0`, upsBasicOutputStatus `.4.1.1.0` |
 | UPS-MIB (RFC 1628), 1.3.6.1.2.1.33.1 | upsIdentManufacturer/Model `.1.1/.1.2`, upsBatteryStatus `.2.1`, upsEstimatedMinutesRemaining `.2.3`, upsEstimatedChargeRemaining `.2.4`, upsBatteryTemperature `.2.7`, upsInputNumLines `.3.2`, upsInputVoltage `.3.3.1.3.1`, upsOutputSource `.4.1`, upsOutputNumLines `.4.3`, upsOutputVoltage `.4.4.1.2.1`, upsOutputPercentLoad `.4.4.1.5.1` |
 
-Not supported: SNMPv3 (USM auth/priv; planned), traps/informs, SET (answered with readOnly/noAccess), and PowerChute
-Network Shutdown (proprietary protocol, not SNMP). Only the OIDs above exist: tools that need other PowerNet
-objects (outlet groups, self-test, runtime calibration) will see noSuchObject until you add readings for them. Note
-the card's `sys_name` etc. are fixed at build time. NUT's `apcc` MIB reads more than the table above (serial number,
-firmware, battery voltage); missing OIDs are skipped, so `snmp-ups` still works with fewer variables.
+### SNMPv3
+
+`users:` adds SNMPv3 (USM, RFC 3414) users: `name`, `auth_protocol` (`none`, `md5`, `sha`, `sha224`, `sha256`,
+`sha384`, `sha512`; the SHA-2 ones per RFC 7860), `auth_password`, `priv_protocol` (`none` or `aes`, AES-128-CFB per
+RFC 3826) and `priv_password`. Passwords must be at least 8 characters, and privacy needs authentication. There is no
+VACM: each user sees the whole table, at exactly its configured level (a request at another level gets an
+unsupportedSecLevels report). `v2c: false` turns v1/v2c off. `engine_id` overrides the default engine ID,
+`80:00:01:3e:03` followed by the MAC address; `dump_config` logs it with the boot count, which is kept in flash and
+goes up on every restart. Not supported: DES and AES-192/256 privacy, contexts other than the default one, and
+informs.
+
+```bash
+snmpwalk -v3 -l authPriv -u monitor -a SHA-256 -A '<auth password>' -x AES -X '<priv password>' <ip> 1.3.6.1.4.1.318
+```
+
+### Traps
+
+`traps:` sends SNMPv2 notifications to each of its `receivers` (`host` as an IPv4 address, `port` 162, and either
+`community`, which defaults to the agent's, or `user:` for SNMPv3 from that user). It sends coldStart at boot and,
+from the PowerNet MIB (`1.3.6.1.4.1.318.0.N`, with the event text in `mtrapargsString.0`, as an APC card sends
+them): communicationLost (1) and communicationEstablished (8) when the `link:` binary sensor changes, and from
+changes in the `status:` text sensor (`ups.status`): upsOnBattery (5) and powerRestored (9) for `OB`, lowBattery (7)
+and returnFromLowBattery (11) for `LB`, upsOverload (2) and upsOverloadCleared (33) for `OVER`,
+upsBatteryNeedsReplacement (17) and upsBatteryReplaced (36) for `RB`, and upsTurnedOff (12) for `OFF`. Status changes
+are not reported while the link is down; the difference is reported once it is back. For v3 traps the card is the
+authoritative engine, so the receiver needs the card's engine ID, e.g. in `snmptrapd.conf`:
+
+```
+createUser -e 0x8000013e03<mac> monitor SHA-256 <auth password> AES <priv password>
+```
+
+Not supported: SNMPv1 traps, informs, SET (answered with readOnly/noAccess), and PowerChute Network Shutdown
+(proprietary protocol, not SNMP). Only the OIDs above exist: tools that need other PowerNet objects (outlet groups,
+self-test, runtime calibration) will see noSuchObject until you add readings for them. Note the card's `sys_name`
+etc. are fixed at build time. NUT's `apcc` MIB reads more than the table above (serial number, firmware, battery
+voltage); missing OIDs are skipped, so `snmp-ups` still works with fewer variables.
 
 ### Testing
 
-Host tests (BER codec, OID ordering, GET/GETNEXT/GETBULK, v1 errors, wrong community, SET refusal, corrupted
-packets under ASan/UBSan): `make -C tests snmp`.
+Host tests (BER codec, OID ordering, GET/GETNEXT/GETBULK, v1 errors, wrong community, SET refusal, the RFC 3414
+key vectors, v3 discovery and each USM report, trap encoding, corrupted packets under ASan/UBSan):
+`make -C tests snmp`. They need OpenSSL (`libssl-dev`); the device uses mbedTLS.
 
 Try a client without hardware (demo table on 127.0.0.1:1161):
 
 ```bash
 make -C tests snmp-serve   # then, in another shell:
 snmpwalk -v2c -c public 127.0.0.1:1161 1.3.6.1.4.1.318
+snmpwalk -v3 -l authPriv -u privsha256 -a SHA-256 -A authpass123 -x AES -X privpass123 127.0.0.1:1161 1.3
 ```
+
+`make -C tests snmp-serve TRAPPORT=1162` also sends a coldStart and two status traps, as v2c (community `public`)
+and as v3 from `privsha256`, to 127.0.0.1:1162 first; for snmptrapd, use
+`createUser -e 0x8000013e03020000000001 privsha256 SHA-256 authpass123 AES privpass123`. The demo users are in
+`tests/snmp_host.cpp`. Checked with net-snmp 5.9.4: get, walk and bulkwalk for MD5, SHA, SHA-256 and SHA-512 with
+AES, wrong passwords, unknown users and wrong levels, and v2c and v3 traps received by snmptrapd.
 
 Manual test against the card (replace `<ip>`; the walk must end, not hang):
 
@@ -119,6 +158,14 @@ NUT `snmp-ups` (`/etc/nut/ups.conf`), then `upsc card@localhost`:
 ```
 
 Not yet run against hardware or a real `snmp-ups`; the OID table follows the published PowerNet and RFC 1628 MIBs.
+
+## Syslog and MQTT
+
+Both are ESPHome's own components, set up in `example/smartslot-bench.yaml`. `syslog:` sends the log over UDP to the
+`udp:` component's address (port 514, INFO and above); the card logs UPS communication lost/established, every
+`ups.status` change and every trap it sends, so syslog carries the UPS event log. `mqtt:` publishes every entity to
+the broker; `discovery: false` because the native API already creates the Home Assistant entities. Add the new keys
+from `example/secrets.yaml.example` (`syslog_host`, `mqtt_*`, `snmp_*`, `trap_host`) to your `secrets.yaml`.
 
 ## Web interface
 
