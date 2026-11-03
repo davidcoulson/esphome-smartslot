@@ -17,7 +17,7 @@ static const nutdrv_config cfg = {"smartslot1", 9600, -1, 0};
 static void wait_state(nutdrv_state_t want, uint32_t ms) {
     for (uint32_t t = 0; t < ms && nutdrv_state() != want; t++) os_sleep_ms(1);
 }
-static void reply_ok(void) { static const uint8_t ok[8] = {1, 2, 3, 4, 5, 6, 7, 8}; serial_host_queue_rx(ok, 8); }
+static void reply_ok(void) { static const uint8_t ok[19] = {0x00, 0x0a, 0x10, 0x89, 0x00, 0x12, 0x11, 0x09, 0x00, 0x01, 0x00, 0x46, 0x00, 0xf8, 0x02, 0xfe, 0x04, 0x4b, 0x9f}; serial_host_queue_rx(ok, sizeof ok); }
 
 static void begin(void) {
     fake_stale = false;
@@ -84,6 +84,8 @@ void test_nutdrv_five_stale_polls_return_to_no_ups(void) {
     wait_state(NUTDRV_RUNNING, 3000);
     fake_stale = true;
     wait_state(NUTDRV_NO_UPS, 2000);
+    /* the driver sets NO_UPS before it marks data stale and calls cleanup */
+    for (int t = 0; t < 1000 && fake_cleanup_calls < 1; t++) os_sleep_ms(1);
     TEST_ASSERT_EQUAL(NUTDRV_NO_UPS, nutdrv_state());
     TEST_ASSERT_FALSE(dstate_is_dataok());
     TEST_ASSERT_TRUE(fake_cleanup_calls >= 1);

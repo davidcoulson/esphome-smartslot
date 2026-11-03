@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+#include <string.h>
 #include "nutshim.h"
 #include "serial.h"
 #include "serial_host.h"
@@ -25,15 +26,26 @@ static void probe_with(const uint8_t *reply, size_t n, bool expect) {
 }
 
 void test_microlink_probe_cases(void) {
-    static const uint8_t ok[8] = {0x01, 2, 3, 4, 5, 6, 7, 8};
-    /* first 8 bytes of the frame an SMT750 (firmware 9.2) sends after 0xFD */
-    static const uint8_t smt750[8] = {0x00, 0x0a, 0x10, 0x89, 0x00, 0x12, 0x11, 0x09};
-    static const uint8_t short_reply[7] = {1, 2, 3, 4, 5, 6, 7};
-    probe_with(ok, sizeof ok, true);
-    serial_host_reset();
+    /* the page-0 frame an SMT750 (firmware 9.2) sends after 0xFD, captured on the bench */
+    static const uint8_t smt750[19] = {0x00, 0x0a, 0x10, 0x89, 0x00, 0x12, 0x11, 0x09, 0x00, 0x01, 0x00, 0x46, 0x00, 0xf8, 0x02, 0xfe, 0x04, 0x4b, 0x9f};
+    uint8_t noisy[23] = {0x13, 0x80, 0xff, 0x00};
+    memcpy(noisy + 4, smt750, sizeof smt750);
+    uint8_t bad_sum[19];
+    memcpy(bad_sum, smt750, sizeof smt750);
+    bad_sum[18] ^= 1;
+    static const uint8_t zeros[32] = {0}; /* line stuck low: every byte reads 0x00 */
+    static const uint8_t old_ok[8] = {1, 2, 3, 4, 5, 6, 7, 8};
     probe_with(smt750, sizeof smt750, true);
     serial_host_reset();
-    probe_with(short_reply, sizeof short_reply, false);
+    probe_with(noisy, sizeof noisy, true);
+    serial_host_reset();
+    probe_with(smt750, sizeof smt750 - 1, false); /* truncated */
+    serial_host_reset();
+    probe_with(bad_sum, sizeof bad_sum, false);
+    serial_host_reset();
+    probe_with(zeros, sizeof zeros, false);
+    serial_host_reset();
+    probe_with(old_ok, sizeof old_ok, false);
     serial_host_reset();
     probe_with(NULL, 0, false); /* nobody answers */
 }

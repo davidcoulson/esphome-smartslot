@@ -11,7 +11,7 @@ static void wait_state(nutdrv_state_t want) {
 }
 
 void test_publish_only_when_running_fresh_and_present(void) {
-    static const uint8_t ok[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    static const uint8_t ok[19] = {0x00, 0x0a, 0x10, 0x89, 0x00, 0x12, 0x11, 0x09, 0x00, 0x01, 0x00, 0x46, 0x00, 0xf8, 0x02, 0xfe, 0x04, 0x4b, 0x9f};
     static const nutdrv_config cfg = {"smartslot1", 9600, -1, 0};
     char buf[16];
     fake_stale = false;
@@ -19,7 +19,7 @@ void test_publish_only_when_running_fresh_and_present(void) {
     microlink_probe_ms = 100;
     nutdrv_probe_retry_ms = 50;
     TEST_ASSERT_FALSE(nutshim_value_for_publish("ups.status", buf, sizeof buf)); /* no driver yet */
-    serial_host_queue_rx(ok, 8);
+    serial_host_queue_rx(ok, sizeof ok);
     TEST_ASSERT_EQUAL(0, nutdrv_start(&cfg));
     wait_state(NUTDRV_RUNNING);
     os_sleep_ms(50);
