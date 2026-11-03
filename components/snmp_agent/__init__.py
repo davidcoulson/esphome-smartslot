@@ -4,7 +4,7 @@ import re
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor, sensor, text_sensor
-from esphome.const import CONF_HOST, CONF_ID, CONF_NAME, CONF_PORT, CONF_SENSOR, CONF_STATUS, CONF_TYPE, CONF_VALUE
+from esphome.const import CONF_ID, CONF_NAME, CONF_PORT, CONF_SENSOR, CONF_STATUS, CONF_TYPE, CONF_VALUE
 
 CODEOWNERS = ["@davidcoulson"]
 DEPENDENCIES = ["esp32", "network"]
@@ -21,6 +21,7 @@ CONF_OID = "oid"
 CONF_TEXT_SENSOR = "text_sensor"
 CONF_SCALE = "scale"
 CONF_MAP = "map"
+CONF_HOST = "host"
 CONF_V2C = "v2c"
 CONF_USERS = "users"
 CONF_AUTH_PROTOCOL = "auth_protocol"
