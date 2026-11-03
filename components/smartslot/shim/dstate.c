@@ -189,8 +189,8 @@ static void append(char *buf, const char *s) {
 
 void status_init(void) { status_buf[0] = 0; }
 void status_set(const char *s) { append(status_buf, s); }
-/* As NUT does, an active alarm adds ALARM to ups.status. */
-void status_commit(void) { dstate_setinfo("ups.status", "%s%s%s", alarm_buf[0] ? "ALARM" : "", alarm_buf[0] && status_buf[0] ? " " : "", status_buf); }
+/* As NUT does, an active alarm adds ALARM to ups.status; but not to an empty one, which marks data not yet servable. */
+void status_commit(void) { dstate_setinfo("ups.status", "%s%s", status_buf[0] && alarm_buf[0] ? "ALARM " : "", status_buf); }
 void alarm_init(void) { alarm_buf[0] = 0; }
 void alarm_set(const char *s) { append(alarm_buf, s); }
 void alarm_commit(void) {

@@ -42,8 +42,6 @@ void test_status_and_alarm_builders(void) {
     /* an active alarm adds ALARM to ups.status, as in NUT */
     status_init(); alarm_init(); status_set("OL"); alarm_set("Battery system - Disconnected"); status_commit(); alarm_commit();
     TEST_ASSERT_EQUAL_STRING("ALARM OL", dstate_getinfo("ups.status"));
-    status_init(); alarm_init(); status_commit(); alarm_commit();
-    TEST_ASSERT_EQUAL_STRING("", dstate_getinfo("ups.status"));
     status_init(); alarm_init(); status_set("OL"); status_commit(); alarm_commit();
     TEST_ASSERT_EQUAL_STRING("OL", dstate_getinfo("ups.status"));
     TEST_ASSERT_NULL(dstate_getinfo("ups.alarm"));
@@ -68,12 +66,15 @@ void test_dataok_datastale(void) {
     dstate_dataok();
     TEST_ASSERT_TRUE(dstate_is_servable()); /* no ups.status at all (the protocol tests' fixtures) */
     status_init(); /* a new session's first poll: the UPS has not sent its status yet */
+    alarm_init(); alarm_set("Battery system - Disconnected"); /* an alarm alone does not make it servable */
     status_commit();
     TEST_ASSERT_TRUE(dstate_is_dataok());
     TEST_ASSERT_FALSE(dstate_is_servable());
     status_set("OL");
     status_commit();
     TEST_ASSERT_TRUE(dstate_is_servable());
+    TEST_ASSERT_EQUAL_STRING("ALARM OL", dstate_getinfo("ups.status"));
+    alarm_init();
 }
 
 static void collect_var(const char *name, const char *value, int flags, long aux, void *ctx) {
