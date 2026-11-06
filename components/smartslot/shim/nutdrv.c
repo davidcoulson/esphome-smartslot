@@ -2,7 +2,9 @@
 /* The task that owns the NUT driver: probe gate, poll loop, and the INSTCMD/SET request queue. */
 #include "nutdrv.h"
 
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "nutshim.h"
@@ -215,3 +217,11 @@ int nutshim_lookup(const char *var, char *buf, size_t len) {
 }
 
 bool nutshim_value_for_publish(const char *var, char *buf, size_t len) { return nutshim_lookup(var, buf, len) == 1; }
+
+bool nutshim_parse_number(const char *s, float *out) {
+    char *end;
+    float v = strtof(s, &end);
+    if (end == s || *end || !isfinite(v)) return false;
+    *out = v;
+    return true;
+}

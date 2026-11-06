@@ -33,3 +33,17 @@ void test_publish_only_when_running_fresh_and_present(void) {
     TEST_ASSERT_EQUAL(-1, nutshim_lookup("no.such.var", buf, sizeof buf)); /* stale: keep the last value */
     nutdrv_stop();
 }
+
+void test_parse_number_accepts_only_whole_finite_numbers(void) {
+    float v = 1;
+    TEST_ASSERT_TRUE(nutshim_parse_number("12.5", &v));
+    TEST_ASSERT_EQUAL_FLOAT(12.5f, v);
+    TEST_ASSERT_TRUE(nutshim_parse_number("-3", &v));
+    TEST_ASSERT_EQUAL_FLOAT(-3.0f, v);
+    TEST_ASSERT_FALSE(nutshim_parse_number("12abc", &v));
+    TEST_ASSERT_FALSE(nutshim_parse_number("nan", &v));
+    TEST_ASSERT_FALSE(nutshim_parse_number("inf", &v));
+    TEST_ASSERT_FALSE(nutshim_parse_number("", &v));
+    TEST_ASSERT_FALSE(nutshim_parse_number("OL", &v));
+    TEST_ASSERT_EQUAL_FLOAT(-3.0f, v); /* a rejected string leaves out alone */
+}

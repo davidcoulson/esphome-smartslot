@@ -48,6 +48,7 @@ void test_nutdrv_five_stale_polls_return_to_no_ups(void);
 void test_nutdrv_slow_status_is_stale_but_not_reprobed(void);
 
 void test_publish_only_when_running_fresh_and_present(void);
+void test_parse_number_accepts_only_whole_finite_numbers(void);
 
 void test_timegm_matches_libc(void);
 
@@ -91,6 +92,7 @@ int main(void) {
     RUN_TEST(test_nutdrv_five_stale_polls_return_to_no_ups);
     RUN_TEST(test_nutdrv_slow_status_is_stale_but_not_reprobed);
     RUN_TEST(test_publish_only_when_running_fresh_and_present);
+    RUN_TEST(test_parse_number_accepts_only_whole_finite_numbers);
     RUN_TEST(test_timegm_matches_libc);
     RUN_TEST(test_proto_primary_and_fsd);
     return UNITY_END();

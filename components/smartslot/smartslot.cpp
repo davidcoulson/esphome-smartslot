@@ -54,17 +54,49 @@ int SmartSlot::instcmd(const std::string &cmd) { return nutdrv_instcmd(cmd.c_str
 
 bool SmartSlot::online() const { return nutdrv_state() == NUTDRV_RUNNING && dstate_is_servable(); }
 
+// Once a second, independent of the publish interval: remembers the last good poll and, LINK_GRACE_S after the
+// link drops, publishes unknown to every entity, so no reader (HA, web page, MQTT, SNMP) is left looking at a frozen
+// "OL 100 %" after the UPS has gone. A shorter blip keeps the last values.
+void SmartSlot::check_link_() {
+  bool on = this->online();
+  if (on) {
+    this->last_contact_ms_ = millis_64();
+    this->cleared_ = false;
+  } else if (!this->cleared_ && this->data_age() >= LINK_GRACE_S) {
+    for (auto &p : this->sensors_)
+      if (!std::isnan(p.first->state)) p.first->publish_state(NAN);
+    for (auto &p : this->text_sensors_)
+      if (!p.first->state.empty()) p.first->publish_state("");
+    this->cleared_ = true;
+  }
+  // Logged so that syslog carries UPS events.
+  if (on != this->online_) ESP_LOGI(TAG, "UPS communication %s", on ? "established" : "lost");
+  this->online_ = on;
+  if (on)
+    this->status_clear_warning();
+  else
+    this->status_set_warning();
+}
+
+void SmartSlot::loop() {
+  uint32_t now = millis();
+  if (now - this->last_check_ms_ < 1000) return;
+  this->last_check_ms_ = now;
+  this->check_link_();
+}
+
 void SmartSlot::update() {
   char buf[256];
-  // A variable the UPS stopped reporting (ups.alarm cleared, charge with the battery disconnected) becomes unknown;
-  // while nothing is being served, sensors keep their last value.
+  this->check_link_();
+  // A variable the UPS stopped reporting (ups.alarm cleared, charge with the battery disconnected) becomes unknown
+  // at once; while nothing is being served the values stay until check_link_() clears them.
   for (auto &p : this->sensors_) {
     int r = nutshim_lookup(p.second.c_str(), buf, sizeof buf);
-    if (r == 0 && !std::isnan(p.first->state)) p.first->publish_state(NAN);
-    if (r != 1) continue;
-    char *end;
-    float v = strtof(buf, &end);
-    if (end != buf) p.first->publish_state(v);
+    float v;
+    if (r == 1 && nutshim_parse_number(buf, &v))
+      p.first->publish_state(v);
+    else if (r != -1 && !std::isnan(p.first->state))
+      p.first->publish_state(NAN);
   }
   for (auto &p : this->text_sensors_) {
     int r = nutshim_lookup(p.second.c_str(), buf, sizeof buf);
@@ -73,20 +105,11 @@ void SmartSlot::update() {
     else if (r == 0 && !p.first->state.empty())
       p.first->publish_state("");
   }
-  // Logged so that syslog carries UPS events.
-  bool on = this->online();
-  if (on != this->online_) ESP_LOGI(TAG, "UPS communication %s", on ? "established" : "lost");
-  this->online_ = on;
-  if (on && nutshim_value_for_publish("ups.status", buf, sizeof buf) && this->last_status_ != buf) {
+  if (this->online_ && nutshim_value_for_publish("ups.status", buf, sizeof buf) && this->last_status_ != buf) {
     ESP_LOGI(TAG, "UPS status: %s -> %s", this->last_status_.empty() ? "-" : this->last_status_.c_str(), buf);
     this->last_status_ = buf;
   }
-  if (!on) {
-    this->stale_polls_++;
-    this->status_set_warning();
-  } else {
-    this->status_clear_warning();
-  }
+  if (!this->online_) this->stale_polls_++;
 }
 
 void SmartSlot::dump_config() {

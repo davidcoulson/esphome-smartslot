@@ -31,6 +31,8 @@ nutdrv_state_t nutdrv_state(void);
 int nutshim_lookup(const char *var, char *buf, size_t len);
 /* nutshim_lookup() == 1: publish nothing unless the value is current. */
 bool nutshim_value_for_publish(const char *var, char *buf, size_t len);
+/* The whole string is one finite number ("12abc", "nan", "" and "OL" are not); NUT numeric values are plain. */
+bool nutshim_parse_number(const char *s, float *out);
 /* Tests only: ask the task to finish and wait for it. */
 void nutdrv_stop(void);
 

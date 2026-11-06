@@ -54,8 +54,11 @@ button:
 ```
 
 `variable` is any NUT variable name (`upsc ups@card` lists them); `command` is any NUT instant command
-(`upscmd -l`). Entities stop publishing while the UPS is unreachable or data is stale, and the component reports a
-warning status (drive a `status_led:` from it). A variable the UPS stops reporting while it is reachable becomes
+(`upscmd -l`). A blip keeps the last values; 20 s after the link drops every entity goes unknown (sensors NAN, text
+sensors empty, checked once a second whatever the publish interval), so HA, the web page, MQTT and SNMP never show
+a frozen reading as live, and the component reports a
+warning status (drive a `status_led:` from it). `id(ups).data_age()` is the seconds since the last good poll and
+`id(ups).online()` the link state; the example publishes both. A variable the UPS stops reporting while it is reachable becomes
 unknown: `ups.alarm` (e.g. "Battery system - Disconnected") is empty when there is no alarm, and `battery.charge` and
 `battery.runtime` are unknown while the battery is disconnected. Reads on port 3493 need no login; `INSTCMD`, `SET VAR` and `LOGIN`
 need the configured user. There is no TLS, Wi-Fi or mDNS in the component; SNMP is the separate `snmp_agent` component
@@ -176,13 +179,16 @@ The example config serves ESPHome's built-in `web_server` (version 3) on `http:/
 assets stored in flash (`local: true`) so it works without internet access. It asks for the `web_user` /
 `web_password` from `example/secrets.yaml` (copy `secrets.yaml.example` and change them). The page shows, in groups:
 
-- Status: UPS status, UPS temperature, uptime, Ethernet link, IP and MAC address, a count of stale polls (update
-  cycles where the driver was down or the UPS data stale), the beeper toggle, and the live log stream.
-- Battery: charge, runtime, voltage. Input/Output: input and output voltage, load.
+- Status: status in words ("On line, charging"; "No contact with UPS" when the link is down), UPS communication,
+  alarm, data age (seconds since the last good poll), UPS temperature, then the diagnostics: raw status code, model,
+  uptime, Ethernet link, IP and MAC address, a count of stale polls (update cycles where the driver was down or the
+  UPS data stale), and the live log stream.
+- Battery: charge, runtime, voltage, temperature. Input/Output: input and output voltage, load.
 - Control: beeper, battery self-test, panel test, runtime calibration start/stop, load off/on and "shutdown, return
   on mains" (the UPS drops the load and comes back when mains returns). Load off and shutdown work only while the
   "Arm load or shutdown" switch is on; it resets after one command or 30 s, since the page has no confirmation dialog.
-- Settings, stored in flash and kept across reboots: poll interval (applied immediately), SNMP community, sysName,
+- Settings, stored in flash and kept across reboots: publish interval (applied immediately; the driver itself polls
+  the UPS every 2 s), SNMP community, sysName,
   sysLocation, sysContact (stored only until the `snmp_agent` component lands), and a reboot button. Firmware can
   be uploaded from the page too (`ota: platform: web_server`). The UART pins, UART_SEL level and buffer bypass are
   board jumpers read at boot, so they have no runtime setting.
@@ -295,4 +301,4 @@ button:
 gone on is logged and ignored; the first press after it goes on sends the command and turns the switch off, and
 that one press consumes the arming for every button sharing the switch, so each arming allows one command. The example config arms `load.off` and `shutdown.return` this way and lets the switch time out after 30 s.
 
-Nothing is published while the UPS is absent or its data is stale. `nutshim_value_for_publish` lives in `nutdrv.h`.
+Every entity goes unknown 20 s after the UPS stops answering or its data goes stale. `nutshim_value_for_publish` lives in `nutdrv.h`.

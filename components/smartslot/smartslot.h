@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <cmath>
 #include <string>
-
 #include <utility>
 #include <vector>
 
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
+#include "esphome/core/hal.h"
 
 #define SMARTSLOT_VERSION "0.1.0-dev"
 
@@ -41,8 +42,11 @@ class SmartSlot : public PollingComponent {
   uint32_t stale_polls() const { return this->stale_polls_; }
   // The driver is talking to the UPS and its data is fresh.
   bool online() const;
+  // Seconds since the UPS last answered with fresh data; NAN before the first contact.
+  float data_age() const { return this->last_contact_ms_ ? (millis_64() - this->last_contact_ms_) / 1000.0f : NAN; }
 
   void setup() override;
+  void loop() override;
   void update() override;
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::AFTER_CONNECTION; }
@@ -53,8 +57,11 @@ class SmartSlot : public PollingComponent {
   uint32_t baud_{9600};
   uint16_t nut_port_{3493};
   std::string nut_user_, nut_pass_;
-  uint32_t stale_polls_{0};
-  bool online_{false};
+  static constexpr float LINK_GRACE_S = 20;  // the driver polls every 2 s and gives up after 5 stale polls
+  void check_link_();
+  uint32_t stale_polls_{0}, last_check_ms_{0};
+  uint64_t last_contact_ms_{0};
+  bool online_{false}, cleared_{false};
   std::string last_status_;  // last ups.status seen while online, for the change log
   std::vector<std::pair<sensor::Sensor *, std::string>> sensors_;
   std::vector<std::pair<text_sensor::TextSensor *, std::string>> text_sensors_;
